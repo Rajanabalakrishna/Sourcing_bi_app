@@ -6,8 +6,6 @@ import 'package:http/http.dart' as http;
 
 import '../Transport_provider/transport_model.dart';
 
-
-
 class TransportService {
   static const String _baseUrl = 'https://supply.bharatintelligence.ai'; // Replace with your actual base URL
 

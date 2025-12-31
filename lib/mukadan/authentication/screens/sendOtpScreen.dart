@@ -49,7 +49,7 @@ class _PhoneEntryScreenState extends State<PhoneEntryScreen> {
               const _HeroIllustration(),
               const SizedBox(height: 32),
               const Text(
-                "Welcome",
+                "Welcome, Farmer.",
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),

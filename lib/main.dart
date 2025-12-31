@@ -13,15 +13,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await OtpApiService.init();
-
-  print('--- APP STARTUP ---');
-  if (OtpApiService.sessionToken != null) {
-    print('Session Token found: ${OtpApiService.sessionToken}');
-  } else {
-    print('No Session Token found. User needs to login.');
-  }
-  print('-------------------');
-
   await dotenv.load(fileName: ".env");
 
   // 2. Initialize Auth Service to load the session token from SharedPreferences

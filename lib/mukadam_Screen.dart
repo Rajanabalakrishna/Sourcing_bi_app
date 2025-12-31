@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:mukadam_bi/plans/allPlansScreen.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
@@ -28,7 +27,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     super.initState();
     _pages = [
       _buildDashboardContent(), // Modern Grid View
-      const DataEntryScreen(),   // Your existing Data Entry Screen
+      const VisitTrackingScreen(),   // Your existing Data Entry Screen
     ];
   }
 
@@ -62,19 +61,19 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     // You can trigger a quick action here, or navigate to registration
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(builder: (context) => const DataEntryScreen()),
-      //     );
-      //   },
-      //   backgroundColor: const Color(0xFF3B82F6),
-      //   shape: const CircleBorder(),
-      //   elevation: 4,
-      //   child: const Icon(Icons.add, color: Colors.white, size: 30),
-      // ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // You can trigger a quick action here, or navigate to registration
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const DataEntryScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF3B82F6),
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: const Icon(Icons.add, color: Colors.white, size: 30),
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
@@ -105,13 +104,13 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
               ),
             ],
           ),
-          // IconButton(
-          //   onPressed: () {},
-          //
-          //   style: IconButton.styleFrom(
-          //     backgroundColor: Colors.white.withOpacity(0.2),
-          //   ),
-          // ),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.notifications_none, color: Colors.white, size: 28),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.2),
+            ),
+          ),
         ],
       ),
     );
@@ -166,13 +165,6 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
           //   "Search database",
           //   Icons.receipt_long,
           //   const TransportProviderListScreen(),
-          // ),
-
-          // _buildWideCard(
-          //   "All plan details",
-          //   "Search database",
-          //   Icons.receipt_long,
-          //   const PlannedVisitsApp(),
           // ),
         ],
       ),
@@ -288,7 +280,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
         children: [
           _navItem(Icons.grid_view_rounded, "Home", 0),
           const SizedBox(width: 40), // Space for FAB
-         _navItem(Icons.table_chart_outlined, "Data", 1),
+          _navItem(Icons.table_chart_outlined, "End data", 1),
         ],
       ),
     );

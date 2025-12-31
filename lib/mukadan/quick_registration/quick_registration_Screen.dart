@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mukadam_bi/mukadan/quick_registration/quick_registration_service.dart';
-//import 'package:mukadam_bi/services/data_entry_service.dart';
-
-import '../../notes/data.dart';
-
-final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
 class QuickMukkadamRegistrationScreen extends StatefulWidget {
+
   const QuickMukkadamRegistrationScreen({super.key});
 
   @override
@@ -17,103 +12,44 @@ class QuickMukkadamRegistrationScreen extends StatefulWidget {
 
 class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final DataEntryService _dataEntryService = DataEntryService();
 
+  // Controllers from your original logic
   final TextEditingController _mukkadamNameController = TextEditingController();
   final TextEditingController _mobileNumbersController = TextEditingController();
+  final TextEditingController _villageController = TextEditingController();
   final TextEditingController _crewSizeController = TextEditingController();
 
   bool _isPermanent = false;
-  bool _isLoadingLocations = false;
 
-  List<Map<String, dynamic>> _districts = [];
-  List<Map<String, dynamic>> _talukas = [];
-  List<Map<String, dynamic>> _villages = [];
-
-  Map<String, dynamic>? _selectedDistrict;
-  Map<String, dynamic>? _selectedTaluka;
-  Map<String, dynamic>? _selectedVillage;
+  // Auto-filled defaults as per your API specification
+  final String _hasSmartphone = 'no';
+  final String _transportMode = 'no_vehicle';
+  final String _workMode = 'daily_up_down';
 
   @override
-  void initState() {
-    super.initState();
-    _loadDistricts();
-  }
-
-  Future<void> _loadDistricts() async {
-    setState(() => _isLoadingLocations = true);
-    try {
-      final districts = await _dataEntryService.getDistricts();
-      setState(() {
-        _districts = districts;
-        _isLoadingLocations = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingLocations = false);
-      _showSnackBar("Error loading districts: $e");
-    }
-  }
-
-  Future<void> _loadTalukas(String districtCode) async {
-    setState(() {
-      _talukas = [];
-      _villages = [];
-      _selectedTaluka = null;
-      _selectedVillage = null;
-      _isLoadingLocations = true;
-    });
-    try {
-      final talukas = await _dataEntryService.getTalukas(districtCode);
-      setState(() {
-        _talukas = talukas;
-        _isLoadingLocations = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingLocations = false);
-      _showSnackBar("Error loading talukas: $e");
-    }
-  }
-
-  Future<void> _loadVillages(String talukaCode) async {
-    setState(() {
-      _villages = [];
-      _selectedVillage = null;
-      _isLoadingLocations = true;
-    });
-    try {
-      final villages = await _dataEntryService.getVillages(talukaCode);
-      setState(() {
-        _villages = villages;
-        _isLoadingLocations = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingLocations = false);
-      _showSnackBar("Error loading villages: $e");
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void dispose() {
+    _mukkadamNameController.dispose();
+    _mobileNumbersController.dispose();
+    _villageController.dispose();
+    _crewSizeController.dispose();
+    super.dispose();
   }
 
   void _submitQuickForm() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedDistrict == null || _selectedTaluka == null || _selectedVillage == null) {
-        _showSnackBar("Please select District, Taluka, and Village");
-        return;
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Submitting Registration...')),
+      );
 
       final Map<String, dynamic> mukkadamData = {
         "mukkadam_name": _mukkadamNameController.text,
+        "village": _villageController.text,
         "mobile_numbers": _mobileNumbersController.text,
         "crew_size": _crewSizeController.text,
         "is_permanent": _isPermanent,
-        "district": _selectedDistrict!['districtnameenglish'],
-        "district_code": _selectedDistrict!['districtcode'].toString(),
-        "taluka": _selectedTaluka!['subdistrictnameenglish'],
-        "taluka_code": _selectedTaluka!['subdistrictcode'].toString(),
-        "village": _selectedVillage!['villagenameenglish'],
-        "village_code": _selectedVillage!['villagecode'].toString(),
+        "has_smartphone": _hasSmartphone,
+        "transport_mode": _transportMode,
+        "work_mode": _workMode,
       };
 
       final response = await quickRegistrationService().quickRegisterMukkadam(
@@ -122,10 +58,18 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
 
       if (mounted) {
         if (response['success']) {
-          _showSnackBar("Registration successful!");
-          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Registration successful! ID: ${response['data']['id']}')),
+          );
+          _mukkadamNameController.clear();
+          _mobileNumbersController.clear();
+          _villageController.clear();
+          _crewSizeController.clear();
+          setState(() => _isPermanent = false);
         } else {
-          _showSnackBar("Failed: ${response['message']}");
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed: ${response['message']}')),
+          );
         }
       }
     }
@@ -140,125 +84,109 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
       appBar: _buildAppBar(isDark),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildLabel("Mukkadam Name", required: true),
-              _buildTextField(
-                controller: _mukkadamNameController,
-                hint: "Enter Name",
-                icon: Icons.person_outline,
-                validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 20),
+        child: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 450),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Create Profile',
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Fill in the details below to register a new Mukkadam quickly.',
+                    style: TextStyle(
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      fontSize: 15,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
 
-              _buildLabel("Mobile Number", required: true),
-              _buildTextField(
-                controller: _mobileNumbersController,
-                hint: "10 Digit Mobile",
-                icon: Icons.phone_android,
-                keyboardType: TextInputType.phone,
-                validator: (v) => (v == null || v.length != 10) ? 'Invalid Mobile' : null,
-              ),
-              const SizedBox(height: 20),
+                  _buildLabel("Mukkadam Name", required: true),
+                  _buildTextField(
+                    controller: _mukkadamNameController,
+                    hint: "John Doe",
+                    icon: Icons.person_outline_rounded,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Enter name' : null,
+                  ),
 
-              _buildLabel("District", required: true),
-              _buildDropdown(
-                value: _selectedDistrict,
-                items: _districts,
-                displayKey: 'districtnameenglish',
-                hint: "Select District",
-                icon: Icons.map,
-                onChanged: (val) {
-                  setState(() => _selectedDistrict = val);
-                  if (val != null) _loadTalukas(val['districtcode'].toString());
-                },
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-              _buildLabel("Taluka", required: true),
-              _buildDropdown(
-                value: _selectedTaluka,
-                items: _talukas,
-                displayKey: 'subdistrictnameenglish',
-                hint: "Select Taluka",
-                icon: Icons.location_city,
-                onChanged: (val) {
-                  setState(() => _selectedTaluka = val);
-                  if (val != null) _loadVillages(val['subdistrictcode'].toString());
-                },
-              ),
-              const SizedBox(height: 20),
+                  _buildLabel("Mobile Numbers", required: true),
+                  _buildTextField(
+                    controller: _mobileNumbersController,
+                    hint: "9876543210",
+                    icon: Icons.phone_iphone_rounded,
+                    keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Enter mobile number';
+                      if (v.length != 10) return 'Enter 10 digits';
+                      return null;
+                    },
+                  ),
 
-              _buildLabel("Village", required: true),
-              _buildDropdown(
-                value: _selectedVillage,
-                items: _villages,
-                displayKey: 'villagenameenglish',
-                hint: "Select Village",
-                icon: Icons.location_on,
-                onChanged: (val) => setState(() => _selectedVillage = val),
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
-              _buildLabel("Crew Size"),
-              _buildTextField(
-                controller: _crewSizeController,
-                hint: "e.g. 15",
-                icon: Icons.groups,
-                keyboardType: TextInputType.number,
+                  _buildLabel("Village", required: true),
+                  _buildTextField(
+                    controller: _villageController,
+                    hint: "Enter village name",
+                    icon: Icons.location_on_outlined,
+                    validator: (v) => (v == null || v.isEmpty) ? 'Enter village' : null,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  _buildLabel("Crew Size"),
+                  _buildTextField(
+                    controller: _crewSizeController,
+                    hint: "e.g. 10",
+                    icon: Icons.groups_outlined,
+                    keyboardType: TextInputType.number,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Modern Checkbox Section
+                  _buildCheckboxTile(isDark),
+
+                  const SizedBox(height: 40),
+
+                  // Styled Submit Button
+                  _buildSubmitButton(),
+                ],
               ),
-              const SizedBox(height: 20),
-              _buildCheckboxTile(isDark),
-              const SizedBox(height: 30),
-              _isLoadingLocations
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF6A5ACD)))
-                  : _buildSubmitButton(),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDropdown({
-    required Map<String, dynamic>? value,
-    required List<Map<String, dynamic>> items,
-    required String displayKey,
-    required String hint,
-    required IconData icon,
-    required void Function(Map<String, dynamic>?) onChanged,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return DropdownButtonFormField<Map<String, dynamic>>(
-      value: value,
-      items: items.map((item) {
-        return DropdownMenuItem<Map<String, dynamic>>(
-          value: item,
-          child: Text(item[displayKey]?.toString() ?? 'Unknown'),
-        );
-      }).toList(),
-      onChanged: onChanged,
-      validator: (v) => v == null ? 'Required' : null,
-      dropdownColor: isDark ? const Color(0xFF1F2937) : Colors.white,
-      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.grey[400]),
-        filled: true,
-        fillColor: isDark ? const Color(0xFF1F2937) : Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
   PreferredSizeWidget _buildAppBar(bool isDark) {
     return AppBar(
-      title: const Text('Quick Registration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded),
+        onPressed: () => Navigator.pop(context),
+      ),
+      title: const Text(
+        'Registration',
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      ),
       centerTitle: true,
       backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
       elevation: 0,
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Divider(
+          height: 1,
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB),
+        ),
+      ),
     );
   }
 
@@ -268,50 +196,130 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
       child: RichText(
         text: TextSpan(
           text: text,
-          style: GoogleFonts.inter(color: Colors.grey[800], fontSize: 14, fontWeight: FontWeight.w600),
-          children: [if (required) const TextSpan(text: ' *', style: TextStyle(color: Colors.redAccent))],
+          style: GoogleFonts.inter(
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[800],
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          children: [
+            if (required)
+              const TextSpan(text: ' *', style: TextStyle(color: Colors.redAccent)),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, TextInputType keyboardType = TextInputType.text, String? Function(String?)? validator}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon),
+        hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
+        prefixIcon: Icon(icon, color: Colors.grey[400], size: 22),
         filled: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        fillColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? const Color(0xFF374151) : const Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF6A5ACD), width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+        ),
       ),
     );
   }
 
   Widget _buildCheckboxTile(bool isDark) {
-    return CheckboxListTile(
-      title: const Text("Is Permanent", style: TextStyle(fontWeight: FontWeight.w600)),
-      value: _isPermanent,
-      activeColor: const Color(0xFF6A5ACD),
-      onChanged: (val) => setState(() => _isPermanent = val!),
-      contentPadding: EdgeInsets.zero,
-
+    return InkWell(
+      onTap: () => setState(() => _isPermanent = !_isPermanent),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        child: Row(
+          children: [
+            SizedBox(
+              height: 24,
+              width: 24,
+              child: Checkbox(
+                value: _isPermanent,
+                activeColor: const Color(0xFF6A5ACD),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                onChanged: (val) => setState(() => _isPermanent = val!),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Is Permanent", style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    "Check if this position is permanent.",
+                    style: TextStyle(fontSize: 12, color: isDark ? Colors.grey[400] : Colors.grey[500]),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSubmitButton() {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 55,
+      height: 58,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6A5ACD).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: _submitQuickForm,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF6A5ACD),
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
         ),
-        child: const Text('Register Mukkadam', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 22),
+            SizedBox(width: 10),
+            Text(
+              'Quick Register Mukkadam',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
       ),
     );
   }

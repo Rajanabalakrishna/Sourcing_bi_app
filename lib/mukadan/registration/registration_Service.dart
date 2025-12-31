@@ -1,21 +1,17 @@
 // lib/registration_service.dart
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart'; // For MediaType
 import 'package:path/path.dart' as p;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../authentication/auth_service/auth_service.dart'; // For path.extension
 
 class RegistrationService {
   // Base URL for the main Mukkadam registration endpoint
-  static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+  static const String _mukkadamRegistrationBaseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
   // https://supply.bharatintelligence.ai/api/transport-providers/
   // Dedicated URL for uploading files directly to S3
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
-
-  static final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
   // Helper function to upload a single file to the dedicated S3 upload endpoint
   Future<String?> _uploadFileToS3({
@@ -168,10 +164,7 @@ class RegistrationService {
     // Continue using MultipartRequest if 'data' field is still expected
     final request = http.MultipartRequest('POST', uri);
 
-    final prefs = await SharedPreferences.getInstance();
-    final String? sessionToken = prefs.getString('session_token');
-
-    request.headers['Authorization'] = 'Token $sessionToken';
+    request.headers['Authorization'] = 'Token ${OtpApiService.sessionToken}';
     request.headers['ngrok-skip-browser-warning'] = 'true';
     request.fields['data'] = jsonEncode(finalMukkadamData);
     try {

@@ -2,16 +2,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:mukadam_bi/mukadan/registration/registration_Service.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../main.dart';
-import '../authentication/auth_service/auth_service.dart'; // Import the image_picker package
+import '../../main.dart'; // Import the image_picker package
 
-
-final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
 // --- Section Widgets (These remain the same as your previous optimized code) ---
 
@@ -687,36 +683,25 @@ class ReferralSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Check if the currently selected value actually exists in the options list
-    // This prevents "assertion failed" errors if the list changes
-    final bool isValueInOptions = referralOptions.contains(selectedReferral);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<dynamic>(
-            // Use null if the selected value isn't in the current list
-            value: isValueInOptions ? selectedReferral : null,
-            hint: Text(referralOptions.isEmpty
-                ? "Loading referral sources..."
-                : "Select Referral Source"),
+            value: selectedReferral,
+            hint: const Text("Select Referral Source"),
             decoration: const InputDecoration(
                 labelText: 'Referral Source',
                 border: OutlineInputBorder()
             ),
-            // Map the items, ensuring each 'item' is used as the value
             items: referralOptions.map<DropdownMenuItem<dynamic>>((dynamic item) {
               return DropdownMenuItem<dynamic>(
                 value: item,
-                child: Text(item['mukkadam_name']?.toString() ?? 'Unknown'),
+                child: Text(item['name']?.toString() ?? 'Unknown'),
               );
             }).toList(),
-            // If the list is empty, onChanged will be null, disabling the dropdown
-            // We ensure it only works when data is present
-            onChanged: referralOptions.isEmpty ? null : onReferralChanged,
-            isExpanded: true, // Ensures the dropdown takes full width and is easier to click
+            onChanged: onReferralChanged,
           ),
           const SizedBox(height: 10),
           TextFormField(
@@ -726,7 +711,7 @@ class ReferralSection extends StatelessWidget {
                 border: OutlineInputBorder()
             ),
             keyboardType: TextInputType.number,
-            readOnly: true,
+            readOnly: true, // Set to true since it's auto-filled by dropdown
           ),
           const SizedBox(height: 10),
           TextFormField(
@@ -741,7 +726,6 @@ class ReferralSection extends StatelessWidget {
     );
   }
 }
-
 
 
 class NotificationPreferencesSection extends StatelessWidget {
@@ -945,24 +929,16 @@ class IDNumbersSection extends StatelessWidget {
 
 class FileUploadsSection extends StatelessWidget {
   final VoidCallback onUploadProfilePhoto;
-  final VoidCallback onCaptureProfilePhoto;
   final VoidCallback onUploadAadharCard;
-  final VoidCallback onCaptureAadharCard;
   final VoidCallback onUploadPanCard;
-  final VoidCallback onCapturePanCard;
   final VoidCallback onUploadBankProof;
-  final VoidCallback onCaptureBankProof;
 
   const FileUploadsSection({
     super.key,
     required this.onUploadProfilePhoto,
-    required this.onCaptureProfilePhoto,
     required this.onUploadAadharCard,
-    required this.onCaptureAadharCard,
     required this.onUploadPanCard,
-    required this.onCapturePanCard,
     required this.onUploadBankProof,
-    required this.onCaptureBankProof,
   });
 
   @override
@@ -972,39 +948,33 @@ class FileUploadsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildUploadRow('Profile Photo', onUploadProfilePhoto, onCaptureProfilePhoto),
+          ElevatedButton.icon(
+            onPressed: onUploadProfilePhoto,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Upload Profile Photo'),
+          ),
           const SizedBox(height: 10),
-          _buildUploadRow('Aadhar Card', onUploadAadharCard, onCaptureAadharCard),
+          ElevatedButton.icon(
+            onPressed: onUploadAadharCard,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Upload Aadhar Card'),
+          ),
           const SizedBox(height: 10),
-          _buildUploadRow('PAN Card', onUploadPanCard, onCapturePanCard),
+          ElevatedButton.icon(
+            onPressed: onUploadPanCard,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Upload PAN Card'),
+          ),
           const SizedBox(height: 10),
-          _buildUploadRow('Bank Proof', onUploadBankProof, onCaptureBankProof),
+          ElevatedButton.icon(
+            onPressed: onUploadBankProof,
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Upload Bank Proof'),
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildUploadRow(String label, VoidCallback onUpload, VoidCallback onCapture) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: onUpload,
-            icon: const Icon(Icons.upload_file),
-            label: Text('Upload $label'),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton.filledTonal(
-          onPressed: onCapture,
-          icon: const Icon(Icons.camera_alt),
-          tooltip: 'Capture $label',
-        ),
-      ],
-    );
-  }
-
-
 }
 
 
@@ -1034,18 +1004,10 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
 
   Future<void> _fetchReferralSources() async {
     try {
-      // Getting the token from OtpApiService which loads it from SharedPreferences
-      final String? token = OtpApiService.sessionToken;
-
-      if (token == null) {
-        print("No authorization token found");
-        return;
-      }
-
       final response = await http.get(
-        Uri.parse('https://supply.bharatintelligence.ai/api/mukkadam/dropdown_list/'),
+        Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/dropdown_list/'),
         headers: {
-          'Authorization': 'Token $mainToken',
+          'Authorization': 'Token e8fa8310c9af344ca22ec6bd23960d609b09c704',
           'ngrok-skip-browser-warning': 'true',
         },
       );
@@ -1053,10 +1015,7 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
       if (response.statusCode == 200) {
         setState(() {
           _referralOptions = jsonDecode(response.body);
-          print(_referralOptions);
         });
-      } else {
-        print("Failed to load referrals: ${response.statusCode}");
       }
     } catch (e) {
       print("Error fetching referrals: $e");
@@ -1283,32 +1242,35 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
   }
 
   // Modified _pickFile function to use image_picker
-  Future<void> _pickFile(String fileType, ImageSource source) async {
+  Future<void> _pickFile(String fileType) async {
     final ImagePicker _picker = ImagePicker();
-    final XFile? file = await _picker.pickImage(source: source);
+    XFile? file;
+
+    // Determine the source based on fileType if needed, or always use gallery for these cases
+    // For this example, we'll assume ImageSource.gallery for all.
+    file = await _picker.pickImage(source: ImageSource.gallery);
 
     if (file != null) {
       setState(() {
         if (fileType == 'profile_photo') {
-          _profilePhotoPath = file.path;
+          _profilePhotoPath = file!.path; // Using null assertion operator
         } else if (fileType == 'aadhar_card') {
-          _aadharCardPath = file.path;
+          _aadharCardPath = file!.path; // Using null assertion operator
         } else if (fileType == 'pan_card') {
-          _panCardPath = file.path;
+          _panCardPath = file!.path; // Using null assertion operator
         } else if (fileType == 'bank_proof') {
-          _bankProofPath = file.path;
+          _bankProofPath = file!.path; // Using null assertion operator
         }
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$fileType ${source == ImageSource.camera ? "captured" : "selected"}: ${file.path.split('/').last}')),
+        SnackBar(content: Text('$fileType selected: ${file!.path.split('/').last}')), // Using null assertion operator
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No $fileType ${source == ImageSource.camera ? "captured" : "selected"}.')),
+        SnackBar(content: Text('No $fileType selected.')),
       );
     }
   }
-
 
 
   Future<void> _handleLocationCapture() async {
@@ -1559,33 +1521,6 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
               ],
             ),
 
-            // Inside your build method's ExpansionTile for Referral Information
-            ExpansionTile(
-              title: const Text('Referral Information', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              children: [
-                ReferralSection(
-                  // Adding a key based on list length can help force a refresh when data arrives
-                  key: ValueKey(_referralOptions.length),
-                  referralOptions: _referralOptions,
-                  selectedReferral: _selectedReferral,
-                  onReferralChanged: (dynamic value) {
-                    setState(() {
-                      _selectedReferral = value;
-                      // Fill the ID into the controller
-                      _referredByController.text = value['id']?.toString() ?? '';
-                      // Optional: fill the name into the source controller if needed
-                      _referralSourceController.text = value['mukkadam_name']?.toString() ?? '';
-                    });
-                  },
-                  referredByController: _referredByController,
-                  referralSourceTextController: _referralSourceTextController,
-                ),
-              ],
-            ),
-
-
-
-
             ExpansionTile(
               title: const Text('Capture Location', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               children: [
@@ -1694,6 +1629,26 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
                 ),
               ],
             ),
+            ExpansionTile(
+              title: const Text('Referral', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              children: [
+                ReferralSection(
+                  referralOptions: _referralOptions,
+                  selectedReferral: _selectedReferral,
+                  referredByController: _referredByController,
+                  referralSourceTextController: _referralSourceTextController,
+                  onReferralChanged: (dynamic newValue) {
+                    setState(() {
+                      _selectedReferral = newValue;
+                      // Fill Referral Source Name
+                      _referralSourceController.text = newValue['name']?.toString() ?? '';
+                      // Fill Referred By ID from response
+                      _referredByController.text = newValue['id']?.toString() ?? '';
+                    });
+                  },
+                ),
+              ],
+            ),
 
             ExpansionTile(
               title: const Text('Notification Preferences', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -1739,24 +1694,17 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
                 ),
               ],
             ),
-
             ExpansionTile(
               title: const Text('File Uploads (Optional)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               children: [
                 FileUploadsSection(
-                  onUploadProfilePhoto: () => _pickFile('profile_photo', ImageSource.gallery),
-                  onCaptureProfilePhoto: () => _pickFile('profile_photo', ImageSource.camera),
-                  onUploadAadharCard: () => _pickFile('aadhar_card', ImageSource.gallery),
-                  onCaptureAadharCard: () => _pickFile('aadhar_card', ImageSource.camera),
-                  onUploadPanCard: () => _pickFile('pan_card', ImageSource.gallery),
-                  onCapturePanCard: () => _pickFile('pan_card', ImageSource.camera),
-                  onUploadBankProof: () => _pickFile('bank_proof', ImageSource.gallery),
-                  onCaptureBankProof: () => _pickFile('bank_proof', ImageSource.camera),
+                  onUploadProfilePhoto: () => _pickFile('profile_photo'),
+                  onUploadAadharCard: () => _pickFile('aadhar_card'),
+                  onUploadPanCard: () => _pickFile('pan_card'),
+                  onUploadBankProof: () => _pickFile('bank_proof'),
                 ),
               ],
             ),
-
-
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton(
