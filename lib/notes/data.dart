@@ -1,43 +1,58 @@
-// data_entry_service.dart
+
+// Ensure your DataEntryService handles the authorization correctly
 import 'dart:convert';
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
 class DataEntryService {
   static const String _baseUrl = "https://supply.bharatintelligence.ai";
 
-  /// Fetches a deduplicated list of districts from the API.
-  Future<List<Map<String, dynamic>>> getDistricts() async {
-    final url = Uri.parse('$_baseUrl/api/locations/districts/');
-
-    try {
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((item) => item as Map<String, dynamic>).toList();
-      } else {
-        throw Exception('Failed to load districts: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error connecting to the server: $e');
-    }
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('session_token');
   }
 
-  /// Fetches talukas belonging to a specific district.
-  Future<List<Map<String, dynamic>>> getTalukas(String districtCode) async {
-    final url = Uri.parse('$_baseUrl/api/locations/talukas/?district_code=$districtCode');
+  Future<List<Map<String, dynamic>>> getDistricts() async {
+    final url = Uri.parse('$_baseUrl/api/locations/districts/');
+    final response = await http.get(url, headers: {'ngrok-skip-browser-warning': 'true'});
+    if (response.statusCode == 200) return List<Map<String, dynamic>>.from(json.decode(response.body));
+    throw Exception('Failed to load districts');
+  }
 
-    try {
-      final response = await http.get(url);
+  Future<List<Map<String, dynamic>>> getTalukas(String code) async {
+    final url = Uri.parse('$_baseUrl/api/locations/talukas/?district_code=$code');
+    final response = await http.get(url, headers: {'ngrok-skip-browser-warning': 'true'});
+    if (response.statusCode == 200) return List<Map<String, dynamic>>.from(json.decode(response.body));
+    throw Exception('Failed to load talukas');
+  }
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        return data.map((item) => item as Map<String, dynamic>).toList();
-      } else {
-        throw Exception('Failed to load talukas: ${response.statusCode}');
-      }
-    } catch (e) {
-      throw Exception('Error connecting to the server: $e');
+  Future<List<Map<String, dynamic>>> getVillages(String code) async {
+    final url = Uri.parse('$_baseUrl/api/locations/villages/?taluka_code=$code');
+    final response = await http.get(url, headers: {'ngrok-skip-browser-warning': 'true'});
+    if (response.statusCode == 200) return List<Map<String, dynamic>>.from(json.decode(response.body));
+    throw Exception('Failed to load villages');
+  }
+
+  Future<void> createVisitPlan(Map<String, dynamic> planData) async {
+    final url = Uri.parse('$_baseUrl/api/visit-plans/');
+    final token = await _getToken();
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Token $mainToken',
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+      },
+      body: json.encode(planData),
+    );
+
+    if (response.statusCode != 201 && response.statusCode != 200) {
+      throw Exception('Server Error: ${response.body}');
     }
   }
 }

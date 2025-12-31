@@ -6,6 +6,7 @@ import "package:shared_preferences/shared_preferences.dart";
 class OtpApiService {
   static final String _baseUrl = dotenv.env['API_BASE_URL']!;
   static final String _authToken = dotenv.env['AUTH_TOKEN']!;
+  static final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
   // Public global variable accessible via OtpApiService.sessionToken from any file
   static String? sessionToken;
@@ -19,10 +20,11 @@ class OtpApiService {
   static Future<void> mobileLogin({required String phoneNumber}) async {
     try {
       final response = await http.post(
-        Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),
+        Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
         headers: {
           "Content-Type": "application/json",
           'ngrok-skip-browser-warning': 'true',
+          'Authorization': 'Token $mainToken'
         },
         body: jsonEncode({
           "mobile_number": phoneNumber,
