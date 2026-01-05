@@ -9,7 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../mukadan/authentication/auth_service/auth_service.dart';
 
-const String API_BASE_URL = "https://supply.bharatintelligence.ai";
+//const String API_BASE_URL = "https://supply.bharatintelligence.ai";
+
+const String API_BASE_URL = "https://furtive-chrissy-reparably.ngrok-free.dev";
 
  final String mainToken=dotenv.env['MAIN_TOKEN']!;// Replace with your actual backend URL
 

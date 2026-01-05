@@ -43,11 +43,28 @@ dependencies:
   share_plus: ^10.1.0
   flutter_dotenv: ^5.1.0
   shared_preferences: ^2.2.2
+  flutter_launcher_icons: "^0.13.1"
+  provider: ^6.1.5+1
+  permission_handler: ^11.3.1
+  call_log: ^4.0.0
+  flutter_contacts: ^1.1.9
+  flutter_sms_inbox: ^1.0.1
+
+
+
 
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  firebase_core: ^4.3.0
+  firebase_messaging: ^16.1.0
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+  sqflite: ^2.3.0
+  flutter_background_service: ^5.1.0
+  connectivity_plus: ^6.0.3
+  flutter_local_notifications: ^19.5.0
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +92,12 @@ flutter:
   assets:
      - assets/images/
      - .env
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/bharat_intelligence_logo.png" # Replace 'app_icon.png' with your actual filename
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/bharat_intelligence_logo.jpg"
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -8,7 +8,8 @@ import '../authentication/auth_service/auth_service.dart';
 final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
 class quickRegistrationService {
-  final String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+ // final String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+  final String _baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
 
   Future<Map<String, dynamic>> quickRegisterMukkadam({
     required Map<String, dynamic> mukkadamData,

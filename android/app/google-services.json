@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1001525307280",
+    "project_id": "mukkadam-d4733",
+    "storage_bucket": "mukkadam-d4733.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1001525307280:android:eb6a5fa5d79a87fb923515",
+        "android_client_info": {
+          "package_name": "com.BharatIntelligence.supply_bi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCOKCsvNePFjCTSHyI1DgbMvFA0P1nbCb8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

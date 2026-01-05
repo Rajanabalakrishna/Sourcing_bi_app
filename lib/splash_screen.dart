@@ -2,9 +2,12 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'main.dart';
 import 'mukadam_Screen.dart';
 import 'mukadan/authentication/screens/sendOtpScreen.dart';
+import 'mukadan/authentication/userProvider.dart';
 import 'mukadan/get_mukadam_details/mukadam_details_Screen.dart';
 
 
@@ -29,15 +32,25 @@ class _SplashScreenState extends State<SplashScreen> {
     // Wait for the splash duration
     await Future.delayed(const Duration(seconds: 3));
 
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 2. ASK FOR PERMISSIONS AND START SERVICE HERE
+    // This is the safe zone to avoid the Android 14 crash
+    await requestPermissionsAndStartService();
+
+    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    await userProvider.loadSavedUser();
+
     // Check SharedPreferences for auth status
-    final prefs = await SharedPreferences.getInstance();
-    final bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
 
     if (mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => isLoggedIn
+          builder: (context) => userProvider.isAuthenticated
               ? const MukadamDashboard()
               : const PhoneEntryScreen(),
         ),

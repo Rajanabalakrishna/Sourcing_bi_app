@@ -10,7 +10,8 @@ import '../authentication/auth_service/auth_service.dart'; // For path.extension
 
 class RegistrationService {
   // Base URL for the main Mukkadam registration endpoint
-  static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+  //static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+  static const String _mukkadamRegistrationBaseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
   // https://supply.bharatintelligence.ai/api/transport-providers/
   // Dedicated URL for uploading files directly to S3
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
@@ -79,7 +80,7 @@ class RegistrationService {
 
     if (profilePhotoPath != null && profilePhotoPath.isNotEmpty) {
       final String fileExtension = p.extension(profilePhotoPath).isNotEmpty ? p.extension(profilePhotoPath).substring(1) : 'jpg';
-      final String s3ObjectName = 'mukadamApp/profilePhoto/${mobileNumber}/profile_${timestamp}.${fileExtension}';
+      final String s3ObjectName = 'mukadamapp/profilephoto/${mobileNumber}/profile_${timestamp}.${fileExtension}';
       final String? s3Key = await _uploadFileToS3(
         filePath: profilePhotoPath,
         s3ObjectName: s3ObjectName,
@@ -94,7 +95,7 @@ class RegistrationService {
     if (aadharCardPath != null && aadharCardPath.isNotEmpty) {
       final String aadharNumber = mukkadamData['aadhar_number'] ?? 'unknown_aadhar';
       final String fileExtension = p.extension(aadharCardPath).isNotEmpty ? p.extension(aadharCardPath).substring(1) : 'jpg';
-      final String s3ObjectName = 'mukadamApp/aadharCard/${mobileNumber}/${aadharNumber}_${timestamp}.${fileExtension}';
+      final String s3ObjectName = 'mukadamapp/aadharcard/${mobileNumber}/${aadharNumber}_${timestamp}.${fileExtension}';
       final String? s3Key = await _uploadFileToS3(
         filePath: aadharCardPath,
         s3ObjectName: s3ObjectName,
@@ -108,7 +109,7 @@ class RegistrationService {
     if (panCardPath != null && panCardPath.isNotEmpty) {
       final String panNumber = mukkadamData['pan_number'] ?? 'unknown_pan';
       final String fileExtension = p.extension(panCardPath).isNotEmpty ? p.extension(panCardPath).substring(1) : 'jpg';
-      final String s3ObjectName = 'mukadamApp/panCard/${mobileNumber}/${panNumber}_${timestamp}.${fileExtension}';
+      final String s3ObjectName = 'mukadamapp/pancard/${mobileNumber}/${panNumber}_${timestamp}.${fileExtension}';
       final String? s3Key = await _uploadFileToS3(
         filePath: panCardPath,
         s3ObjectName: s3ObjectName,
@@ -121,7 +122,7 @@ class RegistrationService {
     }
     if (bankProofPath != null && bankProofPath.isNotEmpty) {
       final String fileExtension = p.extension(bankProofPath).isNotEmpty ? p.extension(bankProofPath).substring(1) : 'jpg';
-      final String s3ObjectName = 'mukadamApp/bankProof/${mobileNumber}/bankproof_${timestamp}.${fileExtension}';
+      final String s3ObjectName = 'mukadamapp/bankproof/${mobileNumber}/bankproof_${timestamp}.${fileExtension}';
       final String? s3Key = await _uploadFileToS3(
         filePath: bankProofPath,
         s3ObjectName: s3ObjectName,
@@ -139,7 +140,7 @@ class RegistrationService {
           .extension(locationCapturePath)
           .isNotEmpty
           ? p.extension(locationCapturePath).substring(1) : 'jpg';
-      final String s3ObjectName = 'mukadamApp/locationCapture/${mobileNumber}/loc_${timestamp}.${fileExtension}';
+      final String s3ObjectName = 'mukadamapp/locationcapture/${mobileNumber}/loc_${timestamp}.${fileExtension}';
 
       final String? s3Key = await _uploadFileToS3(
         filePath: locationCapturePath,

@@ -185,12 +185,13 @@ class _SubmitButton extends StatelessWidget {
           }
 
           try {
+
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Verifying number..."), duration: Duration(seconds: 1)),
             );
 
             // 1. Check if number exists and store token globally
-            await OtpApiService.mobileLogin(phoneNumber: phone);
+             final authResponse=await OtpApiService.mobileLogin(phoneNumber: phone);
 
             // 2. Send OTP
             await OtpApiService.sendOtp(phoneNumber: phone);
@@ -200,7 +201,7 @@ class _SubmitButton extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => VerifyOtpScreen(phoneNumber: phone),
+                  builder: (_) => VerifyOtpScreen(phoneNumber: phone,authData:authResponse),
                 ),
               );
             }

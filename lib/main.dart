@@ -1,16 +1,40 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart'; // Added image_picker import
+import 'package:mukadam_bi/firebase_message.dart';
+import 'package:mukadam_bi/firebase_options.dart';
 import 'package:mukadam_bi/splash_screen.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'background_service.dart';
 import 'mukadam_Screen.dart';
 import 'mukadan/authentication/auth_service/auth_service.dart';
+import 'mukadan/authentication/userProvider.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+ await  Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  //await FirebaseMsg().initFCM();
+
+  // 1. REQUEST NOTIFICATION PERMISSION (Required for Android 13+)
+  // if (await Permission.notification.isDenied) {
+  //   await Permission.notification.request();
+  // }
+  //
+  // await Permission.location.request();
+  // await Permission.locationAlways.request();
+
+
+
+  await initializeService();
 
   await OtpApiService.init();
 
@@ -22,6 +46,25 @@ void main() async {
   }
   print('-------------------');
 
+  final userProvider = UserProvider();
+  await userProvider.loadSavedUser(); // Load the user from storage
+
+  if (userProvider.user != null) {
+    print('Logged in User ID: ${userProvider.user!.id}');
+    print('Logged in User ID: ${userProvider.user!.username}');
+    print('Logged in User ID: ${userProvider.user!.mobileNumber}');
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('bg_user_id', userProvider.user!.id);
+
+    FirebaseMsg().initFCM(userProvider.user!.id.toString(), userProvider.user!.mobileNumber.toString());
+
+
+
+      } else {
+    print('No user data found in provider.');
+  }
+
   await dotenv.load(fileName: ".env");
 
   // 2. Initialize Auth Service to load the session token from SharedPreferences
@@ -29,7 +72,16 @@ void main() async {
 
 
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: userProvider),
+      ],
+      child: MyApp(),
+    ),
+  );
+
+
 
   try {
     print('Attempting to fetch location...');
@@ -61,6 +113,8 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
+
 
 // Made this public so it can be imported into mukadam_registration_Screen.dart
 Future<Position> determinePosition() async {
@@ -165,3 +219,38 @@ class LocationCaptureSection extends StatelessWidget {
     );
   }
 }
+
+
+
+Future<void> requestPermissionsAndStartService() async {
+  // 1. Specifically request Notifications first
+  PermissionStatus nStatus = await Permission.notification.request();
+
+  if (!nStatus.isGranted) {
+    print("Notification permission denied. Service cannot start on Android 14.");
+    return;
+  }
+
+  // 2. Request Location
+  PermissionStatus lStatus = await Permission.location.request();
+
+  if (lStatus.isGranted) {
+    // 3. Request Always Location
+    await Permission.locationAlways.request();
+
+    // 4. CRITICAL: Add a 2-second delay for the OS to register permissions
+    await Future.delayed(const Duration(seconds: 2));
+
+    final service = FlutterBackgroundService();
+    bool isRunning = await service.isRunning();
+
+    if (!isRunning) {
+      await service.startService();
+      print("Service Started Successfully");
+    }
+  } else {
+    print("Location permissions denied.");
+  }
+}
+
+

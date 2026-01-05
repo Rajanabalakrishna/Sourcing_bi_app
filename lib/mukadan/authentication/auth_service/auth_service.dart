@@ -3,10 +3,13 @@ import "package:flutter_dotenv/flutter_dotenv.dart";
 import "package:http/http.dart" as http;
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../user_model.dart";
+
 class OtpApiService {
   static final String _baseUrl = dotenv.env['API_BASE_URL']!;
   static final String _authToken = dotenv.env['AUTH_TOKEN']!;
   static final String mainToken=dotenv.env['MAIN_TOKEN']!;
+
 
   // Public global variable accessible via OtpApiService.sessionToken from any file
   static String? sessionToken;
@@ -17,14 +20,14 @@ class OtpApiService {
     sessionToken = prefs.getString('session_token');
   }
 
-  static Future<void> mobileLogin({required String phoneNumber}) async {
+  static Future<AuthResponse> mobileLogin({required String phoneNumber}) async {
     try {
       final response = await http.post(
-        Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
+        Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),
         headers: {
           "Content-Type": "application/json",
           'ngrok-skip-browser-warning': 'true',
-          'Authorization': 'Token $mainToken'
+          //'Authorization': 'Token $sessionToken'
         },
         body: jsonEncode({
           "mobile_number": phoneNumber,
@@ -35,14 +38,18 @@ class OtpApiService {
       print("Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        final authResponse = AuthResponse.fromJson(data);
 
         // Store in public global variable
         sessionToken = data["token"];
 
         // Persist to SharedPreferences so it survives app restarts
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('session_token', sessionToken!);
+        await prefs.setString('session_token', authResponse.token);
+
+        await prefs.setString('user_data', jsonEncode(authResponse.user.toJson()));
+        return authResponse;
 
         print("User verified. Global Token: $sessionToken");
       } else {

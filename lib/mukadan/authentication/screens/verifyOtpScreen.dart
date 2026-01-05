@@ -2,13 +2,19 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../mukadam_Screen.dart';
 import '../auth_service/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../userProvider.dart';
+import '../user_model.dart';
+
 class VerifyOtpScreen extends StatefulWidget {
   final String phoneNumber; // This will now be +91XXXXXXXXXX
-  const VerifyOtpScreen({super.key, required this.phoneNumber});
+  final AuthResponse authData;
+
+  const VerifyOtpScreen({super.key, required this.phoneNumber,required this.authData});
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
@@ -53,6 +59,9 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
 
       if (verified && mounted) {
         // Store login status locally
+
+        Provider.of<UserProvider>(context, listen: false)
+            .setUserData(widget.authData);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
 
