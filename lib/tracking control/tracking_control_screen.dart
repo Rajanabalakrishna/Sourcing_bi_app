@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TrackingControlScreen extends StatefulWidget {
   const TrackingControlScreen({super.key});
@@ -15,14 +16,18 @@ class _TrackingControlScreenState extends State<TrackingControlScreen> {
   @override
   void initState() {
     super.initState();
-    _checkServiceStatus();
+    _loadTrackingState();
   }
 
-  Future<void> _checkServiceStatus() async {
-    final isRunning = await FlutterBackgroundService().isRunning();
-    setState(() => _isServiceRunning = isRunning);
+  // Loads the last saved state from storage so the UI stays consistent
+  Future<void> _loadTrackingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isServiceRunning = prefs.getBool('is_tracking_active') ?? false;
+    });
   }
 
+  // This was not removed; it is essential for location services
   Future<bool> _handlePermissions() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -35,16 +40,29 @@ class _TrackingControlScreenState extends State<TrackingControlScreen> {
   }
 
   void _toggleService() async {
+    final service = FlutterBackgroundService();
+    final prefs = await SharedPreferences.getInstance();
+    bool isRunning = await service.isRunning();
+
     if (_isServiceRunning) {
-      FlutterBackgroundService().invoke("stopService");
+      // Stop ONLY the location tracking logic in the background
+      service.invoke("stopLocationTracking");
+      await prefs.setBool('is_tracking_active', false);
       setState(() => _isServiceRunning = false);
-      print("--- TRACKING STOPPED ---");
+      print("--- LOCATION TRACKING STOPPED ---");
     } else {
       bool hasPermission = await _handlePermissions();
       if (hasPermission) {
-        await FlutterBackgroundService().startService();
+        // Start the background service process if it isn't running
+        if (!isRunning) {
+          await service.startService();
+        }
+
+        // Trigger the location loop in the background
+        service.invoke("startLocationTracking");
+        await prefs.setBool('is_tracking_active', true);
         setState(() => _isServiceRunning = true);
-        print("--- TRACKING STARTED ---");
+        print("--- LOCATION TRACKING STARTED ---");
       }
     }
   }
@@ -64,7 +82,7 @@ class _TrackingControlScreenState extends State<TrackingControlScreen> {
             ),
             const SizedBox(height: 20),
             Text(
-              _isServiceRunning ? "Service is Active" : "Service is Idle",
+              _isServiceRunning ? "Tracking is Active" : "Tracking is Idle",
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 40),
@@ -75,7 +93,7 @@ class _TrackingControlScreenState extends State<TrackingControlScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
               ),
               child: Text(
-                _isServiceRunning ? "STOP" : "START",
+                _isServiceRunning ? "STOP TRACKING" : "START TRACKING",
                 style: const TextStyle(color: Colors.white),
               ),
             ),

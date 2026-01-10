@@ -129,10 +129,10 @@ class TransporterCard extends StatelessWidget {
                   transporter.name,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                Text(
-                  "Mobile: ${transporter.mobile}",
-                  style: const TextStyle(color: Color(0xFF137fec), fontSize: 14),
-                ),
+                // Text(
+                //   "Mobile: ${transporter.mobile}",
+                //   style: const TextStyle(color: Color(0xFF137fec), fontSize: 14),
+                // ),
                 Text(
                   "Village: ${transporter.village}",
                   style: const TextStyle(color: Colors.grey, fontSize: 12),

@@ -42,7 +42,8 @@ class CallLogModel {
 
 
 class CallLogService {
-  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  static const String baseUrl = 'https://supply.bharatintelligence.ai';
 
   Future<void> syncCallLogs(BuildContext context) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);

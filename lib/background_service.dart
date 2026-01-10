@@ -3,13 +3,16 @@ import 'dart:ui';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart';
-import 'package:intl/intl.dart';
+import 'package:mukadam_bi/sqflite/local_db.dart';
+import 'package:mukadam_bi/tracking%20control/location_tracker_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'Audio/audio_record_handler.dart';
+//import 'audio_recorder_handler.dart';
+//import 'location_tracker_handler.dart';
 
-import 'map/location_api_service.dart';
+
+
+
 
 const String notificationChannelId = 'location_tracking_channel_v9';
 const int notificationId = 888;
@@ -20,8 +23,8 @@ Future<void> initializeService() async {
   const AndroidNotificationChannel channel = AndroidNotificationChannel(
     notificationChannelId,
     'Location Tracking Service',
-    description: 'Tracking location every 6 seconds.',
-    importance: Importance.low,
+    description: 'This service tracks location in the background.',
+    importance: Importance.high, // Required for foreground services
   );
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -33,96 +36,83 @@ Future<void> initializeService() async {
   await service.configure(
     androidConfiguration: AndroidConfiguration(
       onStart: onStart,
-      autoStart: false,
+      autoStart: true, // Set to true to start on boot
       isForegroundMode: true,
       notificationChannelId: notificationChannelId,
-      initialNotificationTitle: 'Tracking Active',
-      initialNotificationContent: 'Initializing...',
+      initialNotificationTitle: 'Bharat intelligence',
+      initialNotificationContent: 'Active',
       foregroundServiceNotificationId: notificationId,
+      // CRITICAL: This ensures the service restarts if killed
+      autoStartOnBoot: true,
     ),
     iosConfiguration: IosConfiguration(
-      autoStart: false,
+      autoStart: true,
       onForeground: onStart,
       onBackground: onStart,
     ),
   );
 }
 
+Timer? locationTimer; // Keep a reference to the timer
+
+
 @pragma('vm:entry-point')
 Future<bool> onStart(ServiceInstance service) async {
   DartPluginRegistrant.ensureInitialized();
-  Timer? trackingTimer;
+  print('🚀 [BACK_SERVICE] Isolate Started');
 
-  // Initialize SharedPreferences inside the isolate
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  // 1. AUTO-RESUME LOGIC
+  // Check if tracking or recording was active before the app was closed
+  await prefs.reload();
+  await prefs.setBool('is_tracking_active', true);
+
+  bool isAudioActive = prefs.getBool('is_audio_active') ?? false;
+
+  void startLocationLoop() {
+    if (locationTimer == null || !locationTimer!.isActive) {
+      locationTimer = Timer.periodic(const Duration(seconds: 6), (timer) async {
+        await LocationTrackerHandler.runLocationUpdate(service);
+      });
+      print("📍 Location Tracking Resumed");
+    }
+  }
+
+  startLocationLoop();
+  if (isAudioActive) AudioRecorderHandler.start();
+
+  // 2. LISTENERS FOR UI COMMANDS
+  service.on('startRecording').listen((event) async {
+    await prefs.setBool('is_audio_active', true);
+    AudioRecorderHandler.start();
+  });
+
+  service.on('stopRecording').listen((event) async {
+    await prefs.setBool('is_audio_active', false);
+    AudioRecorderHandler.stop();
+  });
+
+  service.on('startLocationTracking').listen((event) async {
+    await prefs.setBool('is_tracking_active', true);
+    startLocationLoop();
+  });
+
+  service.on('stopLocationTracking').listen((event) async {
+    await prefs.setBool('is_tracking_active', false);
+    locationTimer?.cancel();
+    locationTimer = null;
+  });
 
   if (service is AndroidServiceInstance) {
     service.setAsForegroundService();
   }
 
-  service.on('stopService').listen((event) {
-    trackingTimer?.cancel();
-    service.stopSelf();
-  });
-
-  trackingTimer = Timer.periodic(const Duration(seconds: 6), (timer) async {
-    final now = DateTime.now();
-    final todayDate = DateFormat('yyyy-MM-dd').format(now);
-
-    // FETCH THE ID SAVED IN MAIN
-    final int userId = prefs.getInt('bg_user_id') ?? 0;
-
-    try {
-      Position pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high
-      );
-
-      final payload = {
-        "user_id": userId, // Now uses the dynamic ID
-        "today_date": todayDate,
-        "locations": [
-          {
-            "latitude": pos.latitude,
-            "longitude": pos.longitude
-          }
-        ]
-      };
-
-      await LocationApiService.postLocation(payload);
-
-      if (service is AndroidServiceInstance) {
-        service.setForegroundNotificationInfo(
-          title: "Tracking Active",
-          content: "Lat: ${pos.latitude.toStringAsFixed(4)} | Lon: ${pos.longitude.toStringAsFixed(4)}",
-        );
-      }
-
-    } catch (e) {
-      print("Background Error: $e");
-    }
+  Timer.periodic(const Duration(seconds: 10), (timer) {
+    print('💓 [HEARTBEAT] Background Service Active...');
   });
 
   return true;
 }
 
 
-Future<void> _sendToApi(Map<String, dynamic> data) async {
-  try {
-    var connectivityResult = await Connectivity().checkConnectivity();
-    if (connectivityResult.contains(ConnectivityResult.none)) {
-      print("No Internet: Skipping API call");
-      return;
-    }
-
-    final response = await Dio().post(
-      'https://furtive-chrissy-reparably.ngrok-free.dev/api/user-locations/',
-      data: data,
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      print("API Success: Data synced successfully");
-    }
-  } catch (e) {
-    print("API Failure: $e");
-  }
-}

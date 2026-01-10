@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import '../mukadan/authentication/userProvider.dart';
 
 class SmsService {
-  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  static const String baseUrl = 'https://supply.bharatintelligence.ai';
 
   Future<void> syncSms(BuildContext context) async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);

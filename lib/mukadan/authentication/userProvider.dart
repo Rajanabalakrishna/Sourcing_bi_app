@@ -34,12 +34,15 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() async{
+  Future<void> logout() async { // <--- Change void to Future<void>
     _user = null;
     _token = null;
-
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Important: Clear storage on logout
+    await prefs.clear();
     notifyListeners();
   }
+
+
+
+
 }

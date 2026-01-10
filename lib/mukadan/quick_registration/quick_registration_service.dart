@@ -1,15 +1,11 @@
-// lib/mukadan/quick_registration/quick_registration_service.dart
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../authentication/auth_service/auth_service.dart';
-
-final String mainToken=dotenv.env['MAIN_TOKEN']!;
 
 class quickRegistrationService {
- // final String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
-  final String _baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
+  //final String _baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
+  static const String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+
 
   Future<Map<String, dynamic>> quickRegisterMukkadam({
     required Map<String, dynamic> mukkadamData,
@@ -18,8 +14,6 @@ class quickRegistrationService {
 
     final prefs = await SharedPreferences.getInstance();
     final String? sessionToken = prefs.getString('session_token');
-
-   // request.headers['Authorization'] = 'Token $sessionToken';
 
     try {
       final response = await http.post(
@@ -33,13 +27,19 @@ class quickRegistrationService {
         body: json.encode(mukkadamData),
       );
 
+      final responseBody = json.decode(response.body);
+
       if (response.statusCode == 201 || response.statusCode == 200) {
-        return {'success': true, 'data': json.decode(response.body)['data']};
+        // Based on your response: {"message": "...", "data": {...}}
+        return {
+          'success': true,
+          'message': responseBody['message'],
+          'data': responseBody['data']
+        };
       } else {
-        final responseBody = json.decode(response.body);
         return {
           'success': false,
-          'message': responseBody['error'] ?? 'Server Error: ${response.statusCode}',
+          'message': responseBody['error'] ?? responseBody['message'] ?? 'Server Error: ${response.statusCode}',
         };
       }
     } catch (e) {

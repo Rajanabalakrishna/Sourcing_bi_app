@@ -2,19 +2,28 @@ import 'package:call_log/call_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
+import 'package:intl/intl.dart';
 import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
 import 'package:mukadam_bi/sms/sms_service.dart';
+import 'package:mukadam_bi/sqflite/local_db.dart';
 import 'package:mukadam_bi/tracking%20control/tracking_control_screen.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
 import 'package:mukadam_bi/transport/transport_provider_list/transport_provider_list_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'Audio/audio_screen.dart';
 import 'contacts/contact_service.dart';
 import 'fetch call logs/call_log_service.dart';
+import 'firebase_message.dart';
 import 'getTransport/gettransportscreen.dart';
+import 'map/location_api_service.dart';
 import 'map/map_lat_long_Screen.dart';
+import 'mukadan/authentication/screens/sendOtpScreen.dart';
+import 'mukadan/authentication/userProvider.dart';
 import 'mukadan/get_mukadam_details/mukadam_details_Screen.dart'; // Ensure path matches MukadamListScreen
 import 'mukadan/quick_registration/quick_registration_Screen.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
@@ -39,11 +48,158 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     super.initState();
     _pages = [
       _buildDashboardContent(), // Modern Grid View
-      const DataEntryScreen(),   // Your existing Data Entry Screen
+     const DataEntryScreen(),
     ];
-
     //_checkAndFetchCallLogs();
+    _setupFCM();
     _syncAllData();
+    _checkAndSyncOldLocationData();// Your existing Data Entry Screen
+
+  }
+
+  // //test data
+  // Future<void> _checkAndSyncOldLocationData() async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final userProvider = Provider.of<UserProvider>(context, listen: false);
+  //
+  //     // 1. Get current date
+  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  //
+  //     // --- TEST DATA START ---
+  //     // Commenting out real DB fetch
+  //     // final dbHelper = DatabaseHelper.instance;
+  //     // List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
+  //
+  //     // Fake Data for testing
+  //     String oldestRecordDate = "2024-01-01"; // Fake old date to trigger sync
+  //     List<Map<String, dynamic>> localData = [
+  //       {
+  //         'latitude': 12.9716,
+  //         'longitude': 77.5946,
+  //         'date': "2024-01-01",
+  //         'time': "10:30:00" // Changed from "10:30 AM"
+  //       },
+  //       {
+  //         'latitude': 12.9717,
+  //         'longitude': 77.5947,
+  //         'date': "2024-01-01",
+  //         'time': "10:35:00" // Changed from "10:35 AM"
+  //       }
+  //     ];
+  //
+  //     // --- TEST DATA END ---
+  //
+  //     if (localData.isNotEmpty) {
+  //       // 3. If the date is NOT today, it's old data from a previous day
+  //       if (oldestRecordDate != todayDate) {
+  //         print("⏳ [TEST SYNC] Triggering sync with FAKE data from $oldestRecordDate...");
+  //
+  //         final Map<String, dynamic> payload = {
+  //           "user_id": userProvider.user?.id ?? 0,
+  //           "today_date": todayDate,
+  //           "locations": localData.map((loc) => {
+  //             "latitude": loc['latitude'],
+  //             "longitude": loc['longitude'],
+  //             "date": loc['date'],
+  //             "time": loc['time']
+  //           }).toList(),
+  //         };
+  //
+  //         // 4. Hit the API
+  //         await LocationApiService.postLocation(payload);
+  //
+  //         // 5. SUCCESS: (Commented out clearLocations to avoid losing real data while testing)
+  //         // await dbHelper.clearLocations();
+  //         await prefs.setString("last_successful_sync_date", todayDate);
+  //
+  //         print("🚀 [TEST SYNC] Fake data hit API successfully.");
+  //       } else {
+  //         print("ℹ️ [TEST SYNC] Date matches today, no sync triggered.");
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print("❌ [TEST SYNC] Failed to hit API: $e");
+  //   }
+  // }
+
+
+
+
+  //real data
+
+  Future<void> _checkAndSyncOldLocationData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+      final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      // 1. Fetch REAL data from local database
+      final dbHelper = DatabaseHelper.instance;
+      List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
+
+      if (localData.isNotEmpty) {
+        // Get the date of the oldest record to check if it's from a previous day
+        String oldestRecordDate = localData.first['date'];
+
+        if (oldestRecordDate != todayDate) {
+          print("⏳ [SYNC] Triggering sync with real data from $oldestRecordDate...");
+
+          final Map<String, dynamic> payload = {
+            "user_id": userProvider.user?.id ?? 0,
+            "today_date": todayDate,
+            "locations": localData.map((loc) {
+              // 2. Convert "10:30 AM" to "10:30:00" for Django backend
+              String rawTime = loc['time'];
+              String formattedTime = rawTime;
+
+              try {
+                // Parses "10:30 AM" and formats to "10:30:00"
+                DateTime parsedTime = DateFormat.jm().parse(rawTime);
+                formattedTime = DateFormat("HH:mm:ss").format(parsedTime);
+              } catch (e) {
+                print("Time parsing error: $e");
+              }
+
+              return {
+                "latitude": loc['latitude'],
+                "longitude": loc['longitude'],
+                "date": loc['date'],
+                "time": formattedTime
+              };
+            }).toList(),
+          };
+
+          // 4. Hit the API
+          await LocationApiService.postLocation(payload);
+
+          // 5. SUCCESS: Clear local DB and update sync flag
+          await dbHelper.clearLocations();
+          await prefs.setString("last_successful_sync_date", todayDate);
+
+          print("🚀 [DASHBOARD SYNC] Old data synced and cleared successfully.");
+        } else {
+          print("ℹ️ [DASHBOARD SYNC] Data in DB is from today. Waiting for background schedule.");
+        }
+      }
+    } catch (e) {
+      print("❌ [DASHBOARD SYNC] Failed to sync old data: $e");
+    }
+  }
+
+
+
+  Future<void> _setupFCM() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    if (userProvider.user != null) {
+      print('--- INITIALIZING FCM ON DASHBOARD ---');
+      await FirebaseMsg().initFCM(
+        userProvider.user!.id.toString(),
+        userProvider.user!.mobileNumber.toString(),
+      );
+    }
   }
 
   Future<void> _syncAllData() async {
@@ -134,6 +290,41 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     }
   }
 
+  Future<void> _handleLogout() async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Would you want to log out from the app?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("No"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Yes", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      // 1. Clear SharedPreferences and Reset Provider via the logout method
+      await Provider.of<UserProvider>(context, listen: false).logout();
+
+      // 2. Navigate to SendOtpScreen and remove all previous routes from the stack
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const PhoneEntryScreen()),
+              (route) => false,
+        );
+      }
+    }
+  }
+
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -156,7 +347,10 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
               children: [
                 _buildHeader(),
                 Expanded(
-                  child: _pages[_selectedIndex],
+                  // FIX 2: Added safety check to prevent black screen if index is out of bounds
+                  child: _selectedIndex < _pages.length
+                      ? _pages[_selectedIndex]
+                      : const Center(child: Text("Page not found")),
                 ),
               ],
             ),
@@ -207,17 +401,19 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
               ),
             ],
           ),
-          // IconButton(
-          //   onPressed: () {},
-          //
-          //   style: IconButton.styleFrom(
-          //     backgroundColor: Colors.white.withOpacity(0.2),
-          //   ),
-          // ),
+          // Added Logout IconButton
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout, color: Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withOpacity(0.2),
+            ),
+          ),
         ],
       ),
     );
   }
+
 
   Widget _buildDashboardContent() {
     return Container(
@@ -268,19 +464,35 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
                 const DirectoryScreen(),
               ),
 
-              _buildActionCard(
-                "Map",
-                Icons.map,
-                Colors.blue,
-                const OfflineMapScreen(),
-              ),
-
+              // _buildActionCard(
+              //   "Map",
+              //   Icons.map,
+              //   Colors.blue,
+              //   const OfflineMapScreen(),
+              // ),
+              //
               _buildActionCard(
                 "control_Screen",
                 Icons.map,
                 Colors.blue,
                 const TrackingControlScreen(),
               ),
+
+              // Inside _buildDashboardContent GridView.count children:
+              _buildActionCard(
+                "Audio\nRecording",
+                Icons.mic,
+                Colors.purple,
+                const AudioRecordScreen(),
+              ),
+
+              _buildActionCard(
+                "My Plans",
+                Icons.next_plan,
+                Colors.grey,
+                const VisitTrackingScreen(),
+              ),
+
 
 
 
@@ -449,4 +661,12 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       ),
     );
   }
+}
+
+Widget _buildPlanTile(Map<String, dynamic> plan) {
+  return ListTile(
+    title: Text(plan['purpose'] ?? "No Purpose"),
+    // Use location_summary from backend to avoid RangeErrors
+    subtitle: Text(plan['location_summary'] ?? "No locations selected"),
+  );
 }

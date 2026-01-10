@@ -14,7 +14,10 @@ class OtpApiService {
   // Public global variable accessible via OtpApiService.sessionToken from any file
   static String? sessionToken;
 
+
+
   /// Call this in your main.dart or app initialization to load the saved token
+
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     sessionToken = prefs.getString('session_token');
@@ -22,6 +25,8 @@ class OtpApiService {
 
   static Future<AuthResponse> mobileLogin({required String phoneNumber}) async {
     try {
+      // testing side
+
       final response = await http.post(
         Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),
         headers: {
@@ -33,6 +38,20 @@ class OtpApiService {
           "mobile_number": phoneNumber,
         }),
       );
+
+      //deployment side
+
+    // final response = await http.post(
+    //     Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //       'ngrok-skip-browser-warning': 'true',
+    //       'Authorization': 'Token $mainToken'
+    //     },
+    //     body: jsonEncode({
+    //       "mobile_number": phoneNumber,
+    //     }),
+    //   );
 
       print("Status Code: ${response.statusCode}");
       print("Response Body: ${response.body}");
@@ -65,6 +84,22 @@ class OtpApiService {
 
   /// 2. Sends OTP using the static AUTH_TOKEN from .env
   static Future<void> sendOtp({required String phoneNumber}) async {
+
+    //testing side
+    // final response = await http.post(
+    //   Uri.parse("$_baseUrl${dotenv.env['OTP_SEND_ENDPOINT']}"),
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     "Accept": "application/json",
+    //     "Authorization": "Token $_authToken",
+    //   },
+    //   body: jsonEncode({
+    //     "phone_number": phoneNumber,
+    //   }),
+    // );
+
+    //deployment side
+
     final response = await http.post(
       Uri.parse("$_baseUrl${dotenv.env['OTP_SEND_ENDPOINT']}"),
       headers: {
@@ -92,6 +127,24 @@ class OtpApiService {
     required String phoneNumber,
     required String otp,
   }) async {
+
+    //testing side
+
+    // final response = await http.post(
+    //   Uri.parse("$_baseUrl${dotenv.env['OTP_VERIFY_ENDPOINT']}"),
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     "Accept": "application/json",
+    //     "Authorization": "Token $_authToken",
+    //   },
+    //   body: jsonEncode({
+    //     "phone_number": phoneNumber,
+    //     "otp": otp,
+    //   }),
+    // );
+
+    //deployment side
+
     final response = await http.post(
       Uri.parse("$_baseUrl${dotenv.env['OTP_VERIFY_ENDPOINT']}"),
       headers: {

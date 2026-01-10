@@ -64,10 +64,16 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
             .setUserData(widget.authData);
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('isLoggedIn', true);
+        //
+        // Navigator.pushAndRemoveUntil(
+        //     context,
+        //     MaterialPageRoute(builder: (_) => const MukadamDashboard(),);
+        // );
 
-        Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const MukadamDashboard())
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const MukadamDashboard()),
+              (route) => false, // This removes all previous screens (PhoneEntry and VerifyOtp)
         );
       }
     } catch (e) {

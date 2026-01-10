@@ -10,8 +10,12 @@ import '../authentication/auth_service/auth_service.dart'; // For path.extension
 
 class RegistrationService {
   // Base URL for the main Mukkadam registration endpoint
-  //static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
-  static const String _mukkadamRegistrationBaseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
+  static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+
+
+
+ //static const String _mukkadamRegistrationBaseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/";
+
   // https://supply.bharatintelligence.ai/api/transport-providers/
   // Dedicated URL for uploading files directly to S3
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
@@ -176,16 +180,36 @@ class RegistrationService {
     request.headers['ngrok-skip-browser-warning'] = 'true';
     request.fields['data'] = jsonEncode(finalMukkadamData);
     try {
+      // final streamedResponse = await request.send();
+      // final response = await http.Response.fromStream(streamedResponse);
+      //
+      // if (response.statusCode == 201) {
+      //   print('Mukkadam Registration successful. Response: ${response.body}');
+      //   return {'success': true, 'data': jsonDecode(response.body)};
+      // } else {
+      //   print('Mukkadam Registration failed: ${response.statusCode} - ${response.body}');
+      //   return {'success': false, 'message': 'Failed to register Mukkadam: ${response.statusCode} - ${response.body}'};
+      // }
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      if (response.statusCode == 201) {
+      // FIX: Accept 200 as well as 201
+      if (response.statusCode == 201 || response.statusCode == 200) {
         print('Mukkadam Registration successful. Response: ${response.body}');
         return {'success': true, 'data': jsonDecode(response.body)};
-      } else {
-        print('Mukkadam Registration failed: ${response.statusCode} - ${response.body}');
-        return {'success': false, 'message': 'Failed to register Mukkadam: ${response.statusCode} - ${response.body}'};
       }
+
+      else {
+        print('Mukkadam Registration failed: ${response.statusCode} - ${response.body}');
+        return {
+          'success': false,
+          'message': 'Failed to register Mukkadam: ${response.statusCode} - ${response.body}'
+        };
+      }
+
+
+
     } catch (e) {
       print('Error sending registration request: $e');
       return {'success': false, 'message': 'Error sending registration request: $e'};

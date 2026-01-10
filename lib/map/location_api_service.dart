@@ -4,20 +4,22 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 class LocationApiService {
   static final Dio _dio = Dio(BaseOptions(
     baseUrl: 'https://furtive-chrissy-reparably.ngrok-free.dev/api',
-    connectTimeout: const Duration(seconds: 5),
-    receiveTimeout: const Duration(seconds: 5),
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
   ));
 
   // POST: Send location to backend
   static Future<void> postLocation(Map<String, dynamic> payload) async {
     try {
       var connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult.contains(ConnectivityResult.none)) return;
+      if (connectivityResult.contains(ConnectivityResult.none))  return ;
 
       final response = await _dio.post('/user-locations/', data: payload);
       if (response.statusCode == 200 || response.statusCode == 201) {
         print("API Success: Location Synced");
+
       }
+
     } catch (e) {
       print("API Post Error: $e");
     }

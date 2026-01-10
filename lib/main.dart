@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -33,8 +34,18 @@ void main() async {
   // await Permission.locationAlways.request();
 
 
+  Map<Permission, PermissionStatus> statuses=await [
+    Permission.location,
+    Permission.locationAlways,
+    Permission.notification,
+    Permission.microphone,
+  ].request();
 
-  await initializeService();
+  if (statuses[Permission.locationAlways]!.isGranted) {
+    await initializeService();
+  }
+
+  //await initializeService();
 
   await OtpApiService.init();
 
@@ -57,7 +68,7 @@ void main() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('bg_user_id', userProvider.user!.id);
 
-    FirebaseMsg().initFCM(userProvider.user!.id.toString(), userProvider.user!.mobileNumber.toString());
+    //await FirebaseMsg().initFCM(userProvider.user!.id.toString(), userProvider.user!.mobileNumber.toString());
 
 
 
@@ -83,19 +94,19 @@ void main() async {
 
 
 
-  try {
-    print('Attempting to fetch location...');
-    Position position = await determinePosition(); // Made public by removing underscore
-    print('-------------------------');
-    print('SUCCESS: GPS Coordinates Found');
-    print('Latitude: ${position.latitude}');
-    print('Longitude: ${position.longitude}');
-    print('-------------------------');
-  } catch (e) {
-    print('-------------------------');
-    print('LOCATION ERROR: $e');
-    print('-------------------------');
-  }
+  // try {
+  //   print('Attempting to fetch location...');
+  //   Position position = await determinePosition(); // Made public by removing underscore
+  //   print('-------------------------');
+  //   print('SUCCESS: GPS Coordinates Found');
+  //   print('Latitude: ${position.latitude}');
+  //   print('Longitude: ${position.longitude}');
+  //   print('-------------------------');
+  // } catch (e) {
+  //   print('-------------------------');
+  //   print('LOCATION ERROR: $e');
+  //   print('-------------------------');
+  // }
 }
 
 class MyApp extends StatelessWidget {
@@ -109,6 +120,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
+      debugShowCheckedModeBanner: false,
       home: const SplashScreen(),
     );
   }

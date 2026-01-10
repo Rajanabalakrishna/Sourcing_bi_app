@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:dropdown_search/dropdown_search.dart'; // Add this package
 import 'package:mukadam_bi/transport/Transport_provider/transport_model.dart';
 import '../../notes/data.dart';
 import 'Transport_Service.dart';
-// Import your data entry service for locations
-// import 'package:mukadam_bi/services/data_entry_service.dart';
 
 class TransportProviderScreen extends StatefulWidget {
   const TransportProviderScreen({super.key});
@@ -22,15 +21,17 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
   final TextEditingController _maxDistanceController = TextEditingController();
   final TextEditingController _vehicleTypeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _capacityController=TextEditingController();
 
   bool _isActive = true;
   bool _isLoadingLocations = false;
 
-  // Location State
+  List<Map<String, dynamic>> _states = [];
   List<Map<String, dynamic>> _districts = [];
   List<Map<String, dynamic>> _talukas = [];
   List<Map<String, dynamic>> _villages = [];
 
+  Map<String, dynamic>? _selectedState;
   Map<String, dynamic>? _selectedDistrict;
   Map<String, dynamic>? _selectedTaluka;
   Map<String, dynamic>? _selectedVillage;
@@ -40,13 +41,31 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDistricts();
+    _loadStates();
   }
 
-  Future<void> _loadDistricts() async {
+  Future<void> _loadStates() async {
     setState(() => _isLoadingLocations = true);
     try {
-      final districts = await _dataEntryService.getDistricts();
+      final states = await _dataEntryService.getStates();
+      setState(() {
+        _states = states;
+        _isLoadingLocations = false;
+      });
+    } catch (e) {
+      setState(() => _isLoadingLocations = false);
+      _showSnackBar("Error loading states: $e", isError: true);
+    }
+  }
+
+  Future<void> _loadDistricts(String stateCode) async {
+    setState(() {
+      _districts = []; _talukas = []; _villages = [];
+      _selectedDistrict = null; _selectedTaluka = null; _selectedVillage = null;
+      _isLoadingLocations = true;
+    });
+    try {
+      final districts = await _dataEntryService.getDistricts(stateCode);
       setState(() {
         _districts = districts;
         _isLoadingLocations = false;
@@ -57,16 +76,14 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     }
   }
 
-  Future<void> _loadTalukas(String districtCode) async {
+  Future<void> _loadTalukas(String stateCode, String districtCode) async {
     setState(() {
-      _talukas = [];
-      _villages = [];
-      _selectedTaluka = null;
-      _selectedVillage = null;
+      _talukas = []; _villages = [];
+      _selectedTaluka = null; _selectedVillage = null;
       _isLoadingLocations = true;
     });
     try {
-      final talukas = await _dataEntryService.getTalukas(districtCode);
+      final talukas = await _dataEntryService.getTalukas(stateCode, districtCode);
       setState(() {
         _talukas = talukas;
         _isLoadingLocations = false;
@@ -77,14 +94,14 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     }
   }
 
-  Future<void> _loadVillages(String talukaCode) async {
+  Future<void> _loadVillages(String stateCode, String talukaCode) async {
     setState(() {
       _villages = [];
       _selectedVillage = null;
       _isLoadingLocations = true;
     });
     try {
-      final villages = await _dataEntryService.getVillages(talukaCode);
+      final villages = await _dataEntryService.getVillages(stateCode, talukaCode);
       setState(() {
         _villages = villages;
         _isLoadingLocations = false;
@@ -97,23 +114,24 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
-      ),
+      SnackBar(content: Text(message), backgroundColor: isError ? Colors.red : Colors.green),
     );
   }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedDistrict == null || _selectedTaluka == null || _selectedVillage == null) {
-        _showSnackBar("Please select District, Taluka, and Village", isError: true);
+      if (_selectedState == null || _selectedDistrict == null || _selectedTaluka == null || _selectedVillage == null) {
+        _showSnackBar("Please select all location fields", isError: true);
         return;
       }
+
+      setState(() => _isLoadingLocations = true);
 
       final newProvider = TransportProvider(
         name: _nameController.text,
         contactNumber: _contactNumberController.text,
+        state: _selectedState!['state_name_english'],
+        stateCode: _selectedState!['state_code'],
         district: _selectedDistrict!['districtnameenglish'],
         districtCode: _selectedDistrict!['districtcode'].toString(),
         taluka: _selectedTaluka!['subdistrictnameenglish'],
@@ -121,27 +139,19 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
         village: _selectedVillage!['villagenameenglish'],
         villageCode: _selectedVillage!['villagecode'].toString(),
         maxDistance: int.parse(_maxDistanceController.text),
-        vehicleType: _vehicleTypeController.text,
+        vehicleType: _vehicleTypeController.text.isEmpty ? null : _vehicleTypeController.text,
         isActive: _isActive,
-        notes: _notesController.text,
+        notes: _notesController.text.isEmpty ? null : _notesController.text,
+        capacity:int.tryParse(_capacityController.text)
       );
 
       try {
-        final createdProvider = await _service.createTransportProvider(newProvider);
-        _showSnackBar('Provider "${createdProvider.name}" created successfully!');
-
-        setState(() {
-          _nameController.clear();
-          _contactNumberController.clear();
-          _maxDistanceController.clear();
-          _vehicleTypeController.clear();
-          _notesController.clear();
-          _selectedDistrict = null;
-          _selectedTaluka = null;
-          _selectedVillage = null;
-          _isActive = true;
-        });
+        await _service.createTransportProvider(newProvider);
+        setState(() => _isLoadingLocations = false);
+        _showSnackBar('Provider created successfully!');
+        Navigator.pop(context);
       } catch (e) {
+        setState(() => _isLoadingLocations = false);
         _showSnackBar('Error: $e', isError: true);
       }
     }
@@ -154,15 +164,13 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     _maxDistanceController.dispose();
     _vehicleTypeController.dispose();
     _notesController.dispose();
+    _capacityController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
       appBar: AppBar(
         title: const Text('Create New Provider', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         leading: IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.pop(context)),
@@ -193,36 +201,61 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Location Dropdowns
-                  _buildLocationDropdown(
+                  _buildSearchableLocationDropdown(
+                    label: 'STATE',
+                    value: _selectedState,
+                    items: _states,
+                    displayKey: 'state_name_english',
+                    onChanged: (val) {
+                      setState(() => _selectedState = val);
+                      if (val != null) _loadDistricts(val['state_code']);
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSearchableLocationDropdown(
                     label: 'DISTRICT',
                     value: _selectedDistrict,
                     items: _districts,
                     displayKey: 'districtnameenglish',
                     onChanged: (val) {
                       setState(() => _selectedDistrict = val);
-                      if (val != null) _loadTalukas(val['districtcode'].toString());
+                      if (val != null) _loadTalukas(_selectedState!['state_code'], val['districtcode'].toString());
                     },
                   ),
                   const SizedBox(height: 20),
-                  _buildLocationDropdown(
+                  _buildSearchableLocationDropdown(
                     label: 'TALUKA',
                     value: _selectedTaluka,
                     items: _talukas,
                     displayKey: 'subdistrictnameenglish',
                     onChanged: (val) {
                       setState(() => _selectedTaluka = val);
-                      if (val != null) _loadVillages(val['subdistrictcode'].toString());
+                      if (val != null) _loadVillages(_selectedState!['state_code'], val['subdistrictcode'].toString());
                     },
                   ),
                   const SizedBox(height: 20),
-                  _buildLocationDropdown(
+                  _buildSearchableLocationDropdown(
                     label: 'VILLAGE',
                     value: _selectedVillage,
                     items: _villages,
                     displayKey: 'villagenameenglish',
                     onChanged: (val) => setState(() => _selectedVillage = val),
                   ),
+
+                  _buildTextField(
+                    controller: _capacityController,
+                    label: 'CAPACITY',
+                    hint: 'Enter capacity',
+                    icon: Icons.fitness_center,
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Capacity required';
+                      if (int.tryParse(v) == null) return 'Enter a valid number';
+                      return null;
+                    },
+                  ),
+
+
 
                   const SizedBox(height: 20),
                   Row(
@@ -254,15 +287,21 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                     hint: 'Enter any specific requirements...',
                     maxLines: 3,
                   ),
-                  if (_isLoadingLocations)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 20),
-                      child: CircularProgressIndicator(),
-                    ),
                 ],
               ),
             ),
           ),
+          // Loading Indicator Overlay
+          if (_isLoadingLocations)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF7C3AED),
+                  strokeWidth: 5,
+                ),
+              ),
+            ),
           _buildBottomButton(),
         ],
       ),
@@ -303,35 +342,50 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     );
   }
 
-  Widget _buildLocationDropdown({
+  Widget _buildSearchableLocationDropdown({
     required String label,
     required Map<String, dynamic>? value,
     required List<Map<String, dynamic>> items,
     required String displayKey,
     required void Function(Map<String, dynamic>?) onChanged,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
       ),
-      child: DropdownButtonFormField<Map<String, dynamic>>(
-        value: value,
-        items: items.map((item) {
-          return DropdownMenuItem<Map<String, dynamic>>(
-            value: item,
-            child: Text(item[displayKey]?.toString() ?? 'Unknown', style: const TextStyle(fontSize: 14)),
-          );
-        }).toList(),
+      child: DropdownSearch<Map<String, dynamic>>(
+        items: (filter, loadProps) => items,
+        selectedItem: value,
+        itemAsString: (item) => item[displayKey]?.toString() ?? '',
         onChanged: onChanged,
-        validator: (v) => v == null ? 'Required' : null,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: const TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          border: InputBorder.none,
+        compareFn: (item1, item2) => item1[displayKey] == item2[displayKey],
+        filterFn: (item, filter) => item[displayKey].toString().toLowerCase().contains(filter.toLowerCase()),
+        decoratorProps: DropDownDecoratorProps(
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: const TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            border: InputBorder.none,
+          ),
         ),
+        popupProps: PopupProps.menu(
+          showSearchBox: true,
+          searchFieldProps: TextFieldProps(
+            decoration: InputDecoration(
+              hintText: "Search $label...",
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+          menuProps: MenuProps(
+            backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+          ),
+        ),
+        validator: (v) => v == null ? 'Required' : null,
       ),
     );
   }
@@ -398,12 +452,13 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
         ),
         child: SafeArea(
           child: ElevatedButton(
-            onPressed: _submitForm,
+            onPressed: _isLoadingLocations ? null : _submitForm,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF7C3AED),
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 56),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              disabledBackgroundColor: Colors.grey,
             ),
             child: const Text('Create Provider', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
