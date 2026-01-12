@@ -1,5 +1,6 @@
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,9 @@ import '../sqflite/local_db.dart';
 class LocationTrackerHandler {
   static Future<void> runLocationUpdate(ServiceInstance service) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
 
     // 1. REFRESH DATA
     await prefs.reload();
@@ -24,22 +28,45 @@ class LocationTrackerHandler {
     print("🔍 [DEBUG START] Time: $currentTime");
     print("👤 [DEBUG] User ID from Prefs: $userId");
 
-    // 2. LOCATION TRACKING
-    try {
-      Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 4),
-      );
-      print("📍 [DEBUG] GPS Fix: ${pos.latitude}, ${pos.longitude}");
-      await dbHelper.insertLocation(pos.latitude, pos.longitude, todayDate, currentTime);
-      print("💾 [DEBUG] Location saved to Local DB");
-    } catch (e) {
-      print("⚠️ [DEBUG] GPS/Storage Error: $e");
+    // 2. LOCATION TRACKING - ONLY BETWEEN 8:00 AM (8) AND 9:00 PM (21)
+    if (now.hour >= 5 && now.hour < 22) {
+      try {
+        Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 10),
+        );
+        print("📍 [DEBUG] GPS Fix: ${pos.latitude}, ${pos.longitude}");
+        await dbHelper.insertLocation(pos.latitude, pos.longitude, todayDate, currentTime);
+        print("💾 [DEBUG] Location saved to Local DB");
+
+        if(service is AndroidServiceInstance)
+          {
+            flutterLocalNotificationsPlugin.show(
+              888, // Matches your notificationId
+              'Bharat intelligence (Active)',
+              'Last Update: $currentTime | Lat: ${pos.latitude.toStringAsFixed(4)}',
+              const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'location_tracking_channel_v9',
+                  'Location Tracking Service',
+                  ongoing: true,
+                  importance: Importance.low,
+                  priority: Priority.low,
+                  icon: 'ic_bg_service_small', // Ensure this icon exists or use default
+                ),
+              ),
+            );
+          }
+      } catch (e) {
+        print("⚠️ [DEBUG] GPS/Storage Error: $e");
+      }
+    } else {
+      print("🕒 [DEBUG] Outside tracking hours (8 AM - 9 PM). Skipping location capture.");
     }
 
-    // 3. SYNC LOGIC - SET YOUR TEST TIME HERE
-    final int targetHour = 23;   // 2 PM
-    final int targetMinute = 00; // 15 Minutes
+    // 3. SYNC LOGIC - (Kept as per your original code)
+    final int targetHour = 23;
+    final int targetMinute = 00;
 
     final DateTime targetTime = DateTime(now.year, now.month, now.day, targetHour, targetMinute);
     final bool isTimePassed = now.isAfter(targetTime);

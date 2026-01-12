@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class TransportProviderService {
   // Using the ngrok URL for testing as per your latest request
- // static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  //static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
  static const String _baseUrl = 'https://supply.bharatintelligence.ai';
 
 

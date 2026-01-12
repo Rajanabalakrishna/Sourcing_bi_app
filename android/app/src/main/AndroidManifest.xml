@@ -32,7 +32,7 @@
     <uses-permission android:name="android.permission.READ_SMS" />
 
     <application
-        android:label="BI_Supply_v2_06_01"
+        android:label="BI_Supply_v2_06_02"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

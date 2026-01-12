@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mukadam_bi/mukadan/authentication/user_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'auth_service/auth_service.dart';
 //import 'models/user_model.dart'; // Ensure this matches your file name
 
 class UserProvider with ChangeNotifier {
@@ -37,6 +39,8 @@ class UserProvider with ChangeNotifier {
   Future<void> logout() async { // <--- Change void to Future<void>
     _user = null;
     _token = null;
+
+    OtpApiService.logout();
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
     notifyListeners();

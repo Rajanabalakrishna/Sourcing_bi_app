@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
+
+//static const String baseUrl = 'https://supply.bharatintelligence.ai';
 class LocationApiService {
   static final Dio _dio = Dio(BaseOptions(
-    baseUrl: 'https://furtive-chrissy-reparably.ngrok-free.dev/api',
+    baseUrl:'https://supply.bharatintelligence.ai/api',//'https://furtive-chrissy-reparably.ngrok-free.dev/api',
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));

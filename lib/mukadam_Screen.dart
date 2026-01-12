@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:intl/intl.dart';
+import 'package:mukadam_bi/call_stack.dart';
 import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
 import 'package:mukadam_bi/sms/sms_service.dart';
@@ -28,7 +29,8 @@ import 'mukadan/get_mukadam_details/mukadam_details_Screen.dart'; // Ensure path
 import 'mukadan/quick_registration/quick_registration_Screen.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
 import 'notes/end_Screen.dart';
-import 'notes/todo_screen.dart'; // Assuming this contains DataEntryScreen
+import 'notes/todo_screen.dart';
+import 'notes/visitApiService.dart'; // Assuming this contains DataEntryScreen
 
 class MukadamDashboard extends StatefulWidget {
   const MukadamDashboard({super.key});
@@ -187,6 +189,124 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       print("❌ [DASHBOARD SYNC] Failed to sync old data: $e");
     }
   }
+
+  bool _isCalling = false;
+  // Future<void>_initiateCall()async
+  // {
+  //   final userProvider = Provider.of<UserProvider>(context, listen: false);
+  //
+  //   final String userMobile = userProvider.user?.mobileNumber ?? "";
+  //
+  //   if (userMobile.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text("User mobile number not found")),
+  //     );
+  //     return;
+  //   }
+  //
+  //   setState(() => _isCalling = true);
+  //
+  //   final String fromNumber=;
+  //   final String toNumber=userProvider.user?.mobileNumber ?? "";
+  //
+  //   if(fromNumber.isEmpty)
+  //     {
+  //       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User mobile number not found")));
+  //       return ;
+  //     }
+  //
+  //   setState(() => _isCalling = true);
+  //
+  //   final response=await CallApiService.makeCall(toNumber: toNumber, fromNumber: fromNumber);
+  //
+  //   setState(() {
+  //     _isCalling=false;
+  //   });
+  //
+  //   if (response['success'] == true) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(response['message'] ?? "Call initiated successfully"),
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+  //   }
+  //   else
+  //     {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(response['message'] ?? "Failed to initiate call"),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //
+  //
+  //
+  // }
+
+  //bool _isCalling = false;
+  Future<void> _initiateCall() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final String userMobile = userProvider.user?.mobileNumber ?? "";
+
+    if (userMobile.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("User mobile number not found")),
+      );
+      return;
+    }
+
+    setState(() => _isCalling = true);
+
+    try {
+      // 1. Get today's date and fetch plans to get the central team number
+      final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final visitPlans = await VisitApiService().fetchTodayVisits(todayDate);
+
+      if (visitPlans.isEmpty) {
+        throw Exception("No plans found for today to fetch central team number.");
+      }
+
+      // 2. Get the central team phone from the first plan
+      // Assuming your VisitPlan model has a field 'centralTeamPhone' mapped to 'central_team_phone'
+      final String centralPhone = visitPlans.first.centralTeamPhone ?? "";
+
+      if (centralPhone.isEmpty) {
+        throw Exception("Central team phone number not available in today's plan.");
+      }
+
+      // 3. Initiate Call
+      // As requested: fromNumber = central team phone, toNumber = user provider number
+      final response = await CallApiService.makeCall(
+        fromNumber: centralPhone,
+        toNumber: userMobile,
+      );
+
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? "Call initiated successfully"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        throw Exception(response['message'] ?? "Failed to initiate call");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll("Exception: ", "")),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isCalling = false);
+      }
+    }
+  }
+
 
 
 
@@ -358,19 +478,13 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     // You can trigger a quick action here, or navigate to registration
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(builder: (context) => const DataEntryScreen()),
-      //     );
-      //   },
-      //   backgroundColor: const Color(0xFF3B82F6),
-      //   shape: const CircleBorder(),
-      //   elevation: 4,
-      //   child: const Icon(Icons.add, color: Colors.white, size: 30),
-      // ),
+      floatingActionButton: FloatingActionButton(
+        onPressed:_isCalling?null:_initiateCall,
+        backgroundColor: const Color(0xFF3B82F6),
+        shape: const CircleBorder(),
+        elevation: 4,
+        child:_isCalling?CircularProgressIndicator(color: Colors.white,): const Icon(Icons.call, color: Colors.white, size: 30),
+      ),
       bottomNavigationBar: _buildBottomNav(),
     );
   }

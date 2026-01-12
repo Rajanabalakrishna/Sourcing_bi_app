@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -162,6 +163,13 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
 
   Future<void> _proceedToNextScreen() async {
     if (!mounted) return;
+
+    final service = FlutterBackgroundService();
+    bool isRunning = await service.isRunning();
+    if (!isRunning) {
+      await service.startService();
+      print("🚀 Background Service Started from Splash Screen");
+    }
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     await userProvider.loadSavedUser();
 

@@ -94,9 +94,16 @@ class FirebaseMsg {
     });
   }
 
+  //
   Future<Map<String, dynamic>?> fetchServerTokenData(String mobileNumber) async {
+    // final url = Uri.parse(
+    //     'https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/user-tokens/?mobile_number=$mobileNumber');
+
     final url = Uri.parse(
-        'https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/user-tokens/?mobile_number=$mobileNumber');
+        'https://supply.bharatintelligence.ai/api/fcm/user-tokens/?mobile_number=$mobileNumber');
+
+
+
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -109,7 +116,11 @@ class FirebaseMsg {
   }
 
   Future<void> sendTokenToBackend(String userId, String mobileNumber, String token) async {
-    final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');
+   // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');
+
+    final url = Uri.parse(
+        'https://supply.bharatintelligence.ai/api/save-fcm-token/');
+
     try {
       final response = await http.post(
         url,
@@ -129,7 +140,10 @@ class FirebaseMsg {
   }
 
   Future<void> updateTokenOnBackend(String mobileNumber, String newToken) async {
-    final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
+   // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
+    final url = Uri.parse(
+        'https://supply.bharatintelligence.ai/api/fcm/update-token/');
+
     try {
       final response = await http.post(
         url,

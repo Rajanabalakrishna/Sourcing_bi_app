@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mukadam_bi/mukadam_Screen.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'data.dart';
 
@@ -28,6 +29,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
   bool _isLoading = false;
   DateTime selectedDate = DateTime.now();
   final TextEditingController _notesController = TextEditingController();
+  final TextEditingController _expectedRegistrations=TextEditingController();
 
   @override
   void initState() {
@@ -254,27 +256,68 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
 
     setState(() => _isLoading = true);
 
+    // final payload = {
+    //   "user_id":5,
+    //   "states": _selectedStates.entries
+    //       .map((e) => {"name": e.value, "code": e.key})
+    //       .toList(),
+    //   "districts": _selectedDistricts.entries
+    //       .map((e) => {"name": e.value, "code": e.key})
+    //       .toList(),
+    //   "talukas": _selectedTalukas.entries
+    //       .map((e) => {"name": e.value, "code": e.key})
+    //       .toList(),
+    //   "villages": _selectedVillages.entries
+    //       .map((e) => {"name": e.value, "code": e.key})
+    //       .toList(),
+    //   "planned_date": DateFormat('yyyy-MM-dd').format(selectedDate),
+    //   "purpose": _notesController.text.isEmpty
+    //       ? "Multi-village visit"
+    //       : _notesController.text,
+    //   "expected_registrations": 15,
+    //   "officials_to_meet": [1, 2],
+    //   "status": "planned",
+    // };
+    
+    final prefs=await SharedPreferences.getInstance();
+    final userId=prefs.getInt('bg_user_id')??0;
+
+
+
+
     final payload = {
-      "states": _selectedStates.entries
-          .map((e) => {"name": e.value, "code": e.key})
-          .toList(),
-      "districts": _selectedDistricts.entries
-          .map((e) => {"name": e.value, "code": e.key})
-          .toList(),
-      "talukas": _selectedTalukas.entries
-          .map((e) => {"name": e.value, "code": e.key})
-          .toList(),
-      "villages": _selectedVillages.entries
-          .map((e) => {"name": e.value, "code": e.key})
-          .toList(),
+      "user_id": userId,
+      "locations": _selectedVillages.entries.map((entry) {
+        final vCode = entry.key;
+        final vName = entry.value;
+
+        // Find the village object to retrieve parent hierarchy codes
+        final vData = _villages.firstWhere(
+              (v) => v['villagecode'].toString() == vCode,
+        );
+
+        final tCode = vData['parent_taluka_code'].toString();
+        final dCode = vData['parent_district_code'].toString();
+        final sCode = vData['parent_state_code'].toString();
+
+        return {
+          "state_code": sCode,
+          "state_name": _selectedStates[sCode],
+          "district_code": dCode,
+          "district_name": _selectedDistricts[dCode],
+          "taluka_code": tCode,
+          "taluka_name": _selectedTalukas[tCode],
+          "village_code": vCode,
+          "village_name": vName,
+        };
+      }).toList(),
       "planned_date": DateFormat('yyyy-MM-dd').format(selectedDate),
       "purpose": _notesController.text.isEmpty
           ? "Multi-village visit"
           : _notesController.text,
-      "expected_registrations": 15,
-      "officials_to_meet": [1, 2],
-      "status": "planned",
+      "expected_registrations": _expectedRegistrations.text,
     };
+
 
     try {
       await _apiService.createVisitPlan(payload);
@@ -382,6 +425,8 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
                 _buildDatePicker(),
                 const SizedBox(height: 16),
                 _buildNotesField(),
+                const SizedBox(height: 16),
+                _buildExpectedField(),
                 const SizedBox(height: 100),
               ],
             ),
@@ -533,6 +578,19 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
       ),
       maxLines: 2,
+    );
+  }
+
+  Widget _buildExpectedField() {
+    return TextField(
+      controller: _expectedRegistrations,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        hintText: "Expected Registrations",
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 }

@@ -41,11 +41,13 @@ void main() async {
     Permission.microphone,
   ].request();
 
-  if (statuses[Permission.locationAlways]!.isGranted) {
-    await initializeService();
-  }
+  // if (statuses[Permission.locationAlways]!.isGranted) {
+  // //  await Future.delayed(const Duration(milliseconds: 500));
+  //
+  //   await initializeService();
+  // }
 
-  //await initializeService();
+  await initializeService();
 
   await OtpApiService.init();
 

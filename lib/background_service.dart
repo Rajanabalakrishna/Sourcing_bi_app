@@ -72,7 +72,7 @@ Future<bool> onStart(ServiceInstance service) async {
 
   void startLocationLoop() {
     if (locationTimer == null || !locationTimer!.isActive) {
-      locationTimer = Timer.periodic(const Duration(seconds: 6), (timer) async {
+      locationTimer = Timer.periodic(const Duration(minutes: 10), (timer) async {
         await LocationTrackerHandler.runLocationUpdate(service);
       });
       print("📍 Location Tracking Resumed");

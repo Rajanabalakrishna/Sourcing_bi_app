@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Add intl to pubspec.yaml for date formatting
-import 'package:mukadam_bi/notes/markVisitedModel.dart';
+import 'package:intl/intl.dart';
 import 'package:mukadam_bi/notes/visitApiService.dart';
-import 'package:mukadam_bi/notes/visitPlanModel.dart';
+import 'package:mukadam_bi/notes/markVisitedModel.dart';
 
 class VisitedPlansScreen extends StatefulWidget {
   const VisitedPlansScreen({super.key});
@@ -15,6 +14,11 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
   final VisitApiService _apiService = VisitApiService();
   List<alreadyVisitedPaln> _history = [];
   bool _isLoading = true;
+  String? _errorMessage;
+
+  // Default range: Last 7 days to Today
+  DateTime _startDate = DateTime.now().subtract(const Duration(days: 7));
+  DateTime _endDate = DateTime.now();
 
   @override
   void initState() {
@@ -23,83 +27,140 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
   }
 
   Future<void> _fetchHistory() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
     try {
-      final data = await _apiService.fetchExecutedVisits();
+      // Formatting dates to yyyy-MM-dd as required by the API
+      String dateFrom = DateFormat('yyyy-MM-dd').format(_startDate);
+      String dateTo = DateFormat('yyyy-MM-dd').format(_endDate);
+
+      final data = await _apiService.fetchExecutedVisits(
+        dateFrom: dateFrom,
+        dateTo: dateTo,
+      );
+
       setState(() {
         _history = data;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF15803D),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _fetchHistory();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: const Color(0xFFF6F8F6),
       appBar: AppBar(
-        title: const Text('Visit History', style: TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF6F8F6),
         elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        title: const Text(
+          'Execution History',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
+        ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _selectDateRange,
+            icon: const Icon(Icons.date_range, color: Color(0xFF15803D)),
+          )
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF15803D)))
-          : _history.isEmpty
-          ? const Center(child: Text("No visited plans found."))
-          : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _history.length,
-        itemBuilder: (context, index) {
-          final plan = _history[index];
-          return _buildHistoryCard(plan);
-        },
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard(alreadyVisitedPaln plan) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: const Color(0xFFDCFCE7), shape: BoxShape.circle),
-          child: const Icon(Icons.check_circle, color: Color(0xFF15803D)),
-        ),
-        title: Text(
-          plan.locationSummary.isNotEmpty ? plan.locationSummary : "${plan.village}, ${plan.taluka}",
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text("Purpose: ${plan.purpose}", style: const TextStyle(color: Color(0xFF64748B))),
-            const SizedBox(height: 8),
-            Row(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF94A3B8)),
-                const SizedBox(width: 4),
                 Text(
-                  "Visited on: ${plan.plannedDate}", // You can format this date better if needed
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                  "${DateFormat('dd MMM yyyy').format(_startDate)} - ${DateFormat('dd MMM yyyy').format(_endDate)}",
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13),
+                ),
+                Text(
+                  "Count: ${_history.length}",
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
                 ),
               ],
             ),
-          ],
-        ),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF46EC13)))
+                : _errorMessage != null
+                ? Center(child: Text(_errorMessage!))
+                : _history.isEmpty
+                ? const Center(child: Text("No executed plans found for this range."))
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _history.length,
+              itemBuilder: (context, index) {
+                final plan = _history[index];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: ListTile(
+                    leading: const CircleAvatar(
+                      backgroundColor: Color(0xFFDCFCE7),
+                      child: Icon(Icons.check_circle, color: Color(0xFF15803D)),
+                    ),
+                    title: Text(
+                      plan.locationSummary.isNotEmpty ? plan.locationSummary : "${plan.village}, ${plan.taluka}",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Purpose: ${plan.purpose}", style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Planned Date: ${plan.plannedDate}",
+                          style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

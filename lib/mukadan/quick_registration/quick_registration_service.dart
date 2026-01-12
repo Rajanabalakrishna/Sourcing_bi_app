@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class quickRegistrationService {
-  //final String _baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
+ // final String _baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/';
   static const String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
 
 
