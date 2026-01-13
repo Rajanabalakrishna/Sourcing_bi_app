@@ -65,6 +65,19 @@ class VisitApiService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
+        // Extract central_team_phone from stats
+        final String? centralPhone = responseData['stats']?['central_team_phone'];
+
+        final prefs=await SharedPreferences.getInstance();
+
+
+        if (centralPhone != null) {
+          await prefs.setString("centralPhone", centralPhone);
+        }
+
+
+
+
         final List<dynamic> data = responseData['data'] ?? [];
         return data.map((json) => VisitPlan.fromJson(json)).toList();
       } else {

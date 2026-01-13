@@ -90,7 +90,7 @@ Future<bool> onStart(ServiceInstance service) async {
 
   service.on('stopRecording').listen((event) async {
     await prefs.setBool('is_audio_active', false);
-    AudioRecorderHandler.stop();
+     AudioRecorderHandler.stop();
   });
 
   service.on('startLocationTracking').listen((event) async {

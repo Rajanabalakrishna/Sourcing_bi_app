@@ -18,6 +18,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'Audio/audio_screen.dart';
 import 'contacts/contact_service.dart';
+import 'dial_pad_screen.dart';
 import 'fetch call logs/call_log_service.dart';
 import 'firebase_message.dart';
 import 'getTransport/gettransportscreen.dart';
@@ -191,61 +192,11 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
   }
 
   bool _isCalling = false;
-  // Future<void>_initiateCall()async
-  // {
-  //   final userProvider = Provider.of<UserProvider>(context, listen: false);
-  //
-  //   final String userMobile = userProvider.user?.mobileNumber ?? "";
-  //
-  //   if (userMobile.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("User mobile number not found")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   setState(() => _isCalling = true);
-  //
-  //   final String fromNumber=;
-  //   final String toNumber=userProvider.user?.mobileNumber ?? "";
-  //
-  //   if(fromNumber.isEmpty)
-  //     {
-  //       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("User mobile number not found")));
-  //       return ;
-  //     }
-  //
-  //   setState(() => _isCalling = true);
-  //
-  //   final response=await CallApiService.makeCall(toNumber: toNumber, fromNumber: fromNumber);
-  //
-  //   setState(() {
-  //     _isCalling=false;
-  //   });
-  //
-  //   if (response['success'] == true) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(response['message'] ?? "Call initiated successfully"),
-  //         backgroundColor: Colors.green,
-  //       ),
-  //     );
-  //   }
-  //   else
-  //     {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(response['message'] ?? "Failed to initiate call"),
-  //           backgroundColor: Colors.red,
-  //         ),
-  //       );
-  //     }
-  //
-  //
-  //
-  // }
 
-  //bool _isCalling = false;
+
+  //this is deployment+testing side
+
+
   Future<void> _initiateCall() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final String userMobile = userProvider.user?.mobileNumber ?? "";
@@ -270,18 +221,27 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
       // 2. Get the central team phone from the first plan
       // Assuming your VisitPlan model has a field 'centralTeamPhone' mapped to 'central_team_phone'
-      final String centralPhone = visitPlans.first.centralTeamPhone ?? "";
+      final String centralPhone = visitPlans.first.centralTeamPhone ?? "+91-804-7361521";
+
+      print("Central Team Phone: $centralPhone");
 
       if (centralPhone.isEmpty) {
         throw Exception("Central team phone number not available in today's plan.");
       }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      final int? userId = prefs.getInt('bg_user_id');
 
       // 3. Initiate Call
       // As requested: fromNumber = central team phone, toNumber = user provider number
       final response = await CallApiService.makeCall(
         fromNumber: centralPhone,
         toNumber: userMobile,
+        userId:userId
       );
+
+
 
       if (response['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,6 +266,67 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       }
     }
   }
+
+
+
+  //after deploy
+
+  // Future<void> _initiateCall() async {
+  //   final userProvider = Provider.of<UserProvider>(context, listen: false);
+  //   final String userMobile = userProvider.user?.mobileNumber ?? "";
+  //
+  //   if (userMobile.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text("User mobile number not found")),
+  //     );
+  //     return;
+  //   }
+  //
+  //   setState(() => _isCalling = true);
+  //
+  //   try {
+  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  //
+  //     // 1. Fetch plans (this updates SharedPreferences)
+  //     await VisitApiService().fetchTodayVisits(todayDate);
+  //
+  //     // 2. Get the number from SharedPreferences
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final String? centralPhone = prefs.getString("centralPhone");
+  //
+  //     if (centralPhone == null || centralPhone.isEmpty) {
+  //       throw Exception("Central team phone number not found.");
+  //     }
+  //
+  //     // 3. Initiate Call
+  //     final response = await CallApiService.makeCall(
+  //       fromNumber: centralPhone,
+  //       toNumber: userMobile,
+  //     );
+  //
+  //     if (response['success'] == true) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(response['message'] ?? "Call initiated successfully"),
+  //           backgroundColor: Colors.green,
+  //         ),
+  //       );
+  //     } else {
+  //       throw Exception(response['message'] ?? "Failed to initiate call");
+  //     }
+  //   } catch (e) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(e.toString().replaceAll("Exception: ", "")),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _isCalling = false);
+  //     }
+  //   }
+  // }
 
 
 
@@ -585,20 +606,20 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
               //   const OfflineMapScreen(),
               // ),
               //
-              _buildActionCard(
-                "control_Screen",
-                Icons.map,
-                Colors.blue,
-                const TrackingControlScreen(),
-              ),
+              // _buildActionCard(
+              //   "control_Screen",
+              //   Icons.map,
+              //   Colors.blue,
+              //   const TrackingControlScreen(),
+              // ),
 
               // Inside _buildDashboardContent GridView.count children:
-              _buildActionCard(
-                "Audio\nRecording",
-                Icons.mic,
-                Colors.purple,
-                const AudioRecordScreen(),
-              ),
+              // _buildActionCard(
+              //   "Audio\nRecording",
+              //   Icons.mic,
+              //   Colors.purple,
+              //   const AudioRecordScreen(),
+              // ),
 
               _buildActionCard(
                 "My Plans",
@@ -628,12 +649,12 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
           SizedBox(height: 25,),
 
-          // _buildWideCard(
-          //   "My Transports",
-          //   "trans",
-          //   Icons.emoji_transportation,
-          //   const TransportDirectoryScreen(searchQuery: '',),
-          // ),
+          _buildWideCard(
+            "Call",
+            "Call",
+            Icons.phone,
+            const DialPadScreen(),
+          ),
         ],
       ),
     );

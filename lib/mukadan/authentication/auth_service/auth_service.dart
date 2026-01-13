@@ -31,31 +31,31 @@ class OtpApiService {
     try {
      //testing side
 
-      // final response = await http.post(
-      //   Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //     'ngrok-skip-browser-warning': 'true',
-      //     //'Authorization': 'Token $sessionToken'
-      //   },
-      //   body: jsonEncode({
-      //     "mobile_number": phoneNumber,
-      //   }),
-      // );
-
-      //deployment side
-
-    final response = await http.post(
-        Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
+      final response = await http.post(
+        Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),
         headers: {
           "Content-Type": "application/json",
           'ngrok-skip-browser-warning': 'true',
-          'Authorization': 'Token $mainToken'
+          //'Authorization': 'Token $sessionToken'
         },
         body: jsonEncode({
           "mobile_number": phoneNumber,
         }),
       );
+
+      //deployment side
+
+    // final response = await http.post(
+    //     Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
+    //     headers: {
+    //       "Content-Type": "application/json",
+    //       'ngrok-skip-browser-warning': 'true',
+    //       'Authorization': 'Token $mainToken'
+    //     },
+    //     body: jsonEncode({
+    //       "mobile_number": phoneNumber,
+    //     }),
+    //   );
 
       print("Status Code: ${response.statusCode}");
       print("Response Body: ${response.body}");
