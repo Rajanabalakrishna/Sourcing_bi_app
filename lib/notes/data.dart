@@ -6,9 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 final String mainToken = dotenv.env['MAIN_TOKEN'] ?? '';
 
 class DataEntryService {
-  //static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
 
-  static const String _baseUrl = "https://supply.bharatintelligence.ai";
+  // static const String _baseUrl = "https://supply.bharatintelligence.ai";
 
 
 

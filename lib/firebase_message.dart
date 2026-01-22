@@ -67,24 +67,30 @@ class FirebaseMsg {
       String? cachedToken = prefs.getString('cached_fcm_token');
 
       if (cachedToken != token) {
-        print("Token change detected. Checking server status...");
-
+        print("Token sync required. Fetching server state...");
         Map<String, dynamic>? serverData = await fetchServerTokenData(mobileNumber);
 
-        if (serverData == null ||serverData['total_devices'] == 0||
-            serverData['primary_token'] == null ||
-            serverData['primary_token'] == "") {
-          print("No existing token found. Calling sendTokenToBackend...");
-          await sendTokenToBackend(userId, mobileNumber, token);
-          await prefs.setString('cached_fcm_token', token);
-        } else if (serverData['primary_token'] != token) {
-          print("Token mismatch on server. Calling updateTokenOnBackend...");
-          await updateTokenOnBackend(mobileNumber, token);
-          await prefs.setString('cached_fcm_token', token);
+        if (serverData != null && serverData['success'] == true) {
+          // CASE: Number exists on server
+          List devices = serverData['devices'] ?? [];
+          bool isTokenRegistered = devices.any((device) => device['fcm_token'] == token);
+          String? primaryToken = serverData['primary_token'];
+
+          if (!isTokenRegistered || primaryToken != token) {
+            print("Existing number found. Token mismatch or not primary. Updating...");
+            await updateTokenOnBackend(mobileNumber, token);
+          } else {
+            print("Server already has this token as primary. No update needed.");
+          }
         } else {
-          print("Server already up to date. Syncing local cache.");
-          await prefs.setString('cached_fcm_token', token);
+          // CASE: Truly a new number or API failed to find the user
+          print("No active device records found for this number. Registering new token...");
+          await sendTokenToBackend(userId, mobileNumber, token);
         }
+
+        await prefs.setString('cached_fcm_token', token);
+      } else {
+        print("Token matches local cache.");
       }
     }
 
@@ -94,32 +100,83 @@ class FirebaseMsg {
     });
   }
 
+
+
+
+
+
+  //
+  // Future<void> initFCM(String userId, String mobileNumber) async {
+  //   await msgService.requestPermission();
+  //   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  //
+  //   String? token = await msgService.getToken();
+  //   print("Current Device Token: $token");
+  //
+  //   if (token != null) {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     String? cachedToken = prefs.getString('cached_fcm_token');
+  //
+  //     if (cachedToken != token) {
+  //       print("Token change detected. Checking server status...");
+  //
+  //       Map<String, dynamic>? serverData = await fetchServerTokenData(mobileNumber);
+  //
+  //       if (serverData == null ||serverData['total_devices'] == 0||
+  //           serverData['primary_token'] == null ||
+  //           serverData['primary_token'] == "") {
+  //         print("No existing token found. Calling sendTokenToBackend...");
+  //         await sendTokenToBackend(userId, mobileNumber, token);
+  //         await prefs.setString('cached_fcm_token', token);
+  //       } else if (serverData['primary_token'] != token) {
+  //         print("Token mismatch on server. Calling updateTokenOnBackend...");
+  //         await updateTokenOnBackend(mobileNumber, token);
+  //         await prefs.setString('cached_fcm_token', token);
+  //       } else {
+  //         print("Server already up to date. Syncing local cache.");
+  //         await prefs.setString('cached_fcm_token', token);
+  //       }
+  //     }
+  //   }
+  //
+  //   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+  //     print("📱 Foreground FCM Received: ${message.data}");
+  //     _processRemoteAction(message);
+  //   });
+  // }
+
   //
   Future<Map<String, dynamic>?> fetchServerTokenData(String mobileNumber) async {
-    // final url = Uri.parse(
-    //     'https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/user-tokens/?mobile_number=$mobileNumber');
+    final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/user-tokens/?mobile_number=$mobileNumber');
 
-    final url = Uri.parse(
-        'https://supply.bharatintelligence.ai/api/fcm/user-tokens/?mobile_number=$mobileNumber');
-
-
+    // Fetch the authToken from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final authToken = prefs.getString('session_token');
 
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          if (authToken != null) 'Authorization': 'Token $authToken',
+        },
+      );
+
+      // Even if it's a 404, the backend might send {"success": false}
+      return jsonDecode(response.body);
     } catch (e) {
       print("Error fetching server token: $e");
+      return null;
     }
-    return null;
   }
 
-  Future<void> sendTokenToBackend(String userId, String mobileNumber, String token) async {
-   // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');
 
-    final url = Uri.parse(
-        'https://supply.bharatintelligence.ai/api/save-fcm-token/');
+
+  Future<void> sendTokenToBackend(String userId, String mobileNumber, String token) async {
+   final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');
+
+    // final url = Uri.parse(
+    //     'https://supply.bharatintelligence.ai/api/save-fcm-token/');
 
     try {
       final response = await http.post(
@@ -140,14 +197,19 @@ class FirebaseMsg {
   }
 
   Future<void> updateTokenOnBackend(String mobileNumber, String newToken) async {
-   // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
-    final url = Uri.parse(
-        'https://supply.bharatintelligence.ai/api/fcm/update-token/');
+   final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
+   //  final url = Uri.parse(
+   //      'https://supply.bharatintelligence.ai/api/fcm/update-token/');
+
+   final prefs = await SharedPreferences.getInstance();
+   final authToken = prefs.getString('session_token');
 
     try {
-      final response = await http.post(
+      final response = await http.patch(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json',
+                   'Authorization': 'Token $authToken',
+                },
         body: jsonEncode({
           "mobile_number": mobileNumber,
           "new_token": newToken,

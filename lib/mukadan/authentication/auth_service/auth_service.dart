@@ -29,6 +29,7 @@ class OtpApiService {
 
   static Future<AuthResponse> mobileLogin({required String phoneNumber}) async {
     try {
+
      //testing side
 
       final response = await http.post(
@@ -43,8 +44,10 @@ class OtpApiService {
         }),
       );
 
-      //deployment side
 
+
+      //deployment side
+    //
     // final response = await http.post(
     //     Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
     //     headers: {
@@ -89,21 +92,7 @@ class OtpApiService {
   /// 2. Sends OTP using the static AUTH_TOKEN from .env
   static Future<void> sendOtp({required String phoneNumber}) async {
 
-    //testing side
-    // final response = await http.post(
-    //   Uri.parse("$_baseUrl${dotenv.env['OTP_SEND_ENDPOINT']}"),
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     "Accept": "application/json",
-    //     "Authorization": "Token $_authToken",
-    //   },
-    //   body: jsonEncode({
-    //     "phone_number": phoneNumber,
-    //   }),
-    // );
-
-    //deployment side
-
+   // testing side
     final response = await http.post(
       Uri.parse("$_baseUrl${dotenv.env['OTP_SEND_ENDPOINT']}"),
       headers: {
@@ -115,6 +104,20 @@ class OtpApiService {
         "phone_number": phoneNumber,
       }),
     );
+
+    //deployment side
+
+    // final response = await http.post(
+    //   Uri.parse("$_baseUrl${dotenv.env['OTP_SEND_ENDPOINT']}"),
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     "Accept": "application/json",
+    //     "Authorization": "Token $_authToken",
+    //   },
+    //   body: jsonEncode({
+    //     "phone_number": phoneNumber,
+    //   }),
+    // );
 
     if (response.statusCode == 200) return;
 

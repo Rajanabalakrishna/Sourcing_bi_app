@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-//import 'package:printing/printing.dart';
 import 'package:mukadam_bi/notes/visitApiService.dart';
 import 'package:mukadam_bi/notes/visitPlanModel.dart';
 import 'package:mukadam_bi/notes/visitedPlansScreen.dart';
@@ -22,6 +22,7 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _isShowingToday = false;
+  String _headerTitle = "Planned Visits";
 
   @override
   void initState() {
@@ -34,6 +35,7 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
       _isLoading = true;
       _errorMessage = null;
       _isShowingToday = false;
+      _headerTitle = "Planned Visits";
     });
     try {
       final data = await _apiService.fetchPlannedVisits();
@@ -54,6 +56,7 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
       _isLoading = true;
       _errorMessage = null;
       _isShowingToday = true;
+      _headerTitle = "Today's Schedule";
     });
     try {
       String todayDate = DateTime.now().toIso8601String().split('T')[0];
@@ -70,11 +73,53 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
     }
   }
 
+  // New logic to load data for a specific selected date
+  Future<void> _loadDataForDate(DateTime date) async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isShowingToday = true;
+      _headerTitle = "Plans: ${DateFormat('dd MMM').format(date)}";
+    });
+    try {
+      String formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      // Calling the new API with from/to as the same date
+      final data = await _apiService.fetchPlannedVisitsByRange(formattedDate, formattedDate);
+      setState(() {
+        _plans = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _selectDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(primary: Color(0xFF15803D)),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      _loadDataForDate(picked);
+    }
+  }
+
   Future<void> _generateAndDownloadPdf() async {
     final pdf = pw.Document();
     final String todayDate = DateTime.now().toIso8601String().split('T')[0];
-
-    // Get user info from the first plan if available
     String userName = _plans.isNotEmpty ? (_plans.first.userDetails?.fullName ?? "N/A") : "N/A";
     String userRole = _plans.isNotEmpty ? (_plans.first.userDetails?.role ?? "N/A") : "N/A";
 
@@ -93,14 +138,6 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
                 ],
               ),
             ),
-            pw.SizedBox(height: 10),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text("User: $userName", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                pw.Text("Role: ${userRole.toUpperCase()}"),
-              ],
-            ),
             pw.SizedBox(height: 20),
             pw.TableHelper.fromTextArray(
               headers: ['ID', 'Location', 'Purpose', 'Expected Reg.', 'Status'],
@@ -115,14 +152,6 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
               }).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
               headerDecoration: const pw.BoxDecoration(color: PdfColors.green800),
-              cellHeight: 30,
-              cellAlignments: {
-                0: pw.Alignment.centerLeft,
-                1: pw.Alignment.centerLeft,
-                2: pw.Alignment.centerLeft,
-                3: pw.Alignment.center,
-                4: pw.Alignment.center,
-              },
             ),
           ];
         },
@@ -130,16 +159,9 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
     );
 
     try {
-      // Show preview and allow print/save
       await Printing.layoutPdf(onLayout: (PdfPageFormat format) async => pdf.save());
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("PDF generated successfully")),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error generating PDF: $e")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -149,67 +171,43 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Confirm Visit"),
-          content: const Text("Did you complete this task?"),
+          content: const Text("Did you complete this visit?"),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text("No", style: TextStyle(color: Colors.red)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text("Yes", style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("No", style: TextStyle(color: Colors.red))),
+            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Yes", style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold))),
           ],
         );
       },
     );
-
-    if (confirmed == true) {
-      _handleMarkExecuted(plan);
-    }
+    if (confirmed == true) _handleMarkExecuted(plan);
   }
 
   Future<void> _handleMarkExecuted(VisitPlan plan) async {
-    setState(() => plan.isSelected = true);
+    setState(() => _isLoading = true);
     bool success = await _apiService.markPlanAsExecuted(plan.id);
     if (success) {
-      setState(() {
-        plan.isExecuted = true;
-        plan.isSelected = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Plan marked as executed successfully")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Plan marked as executed")));
+      _isShowingToday ? _loadTodayData() : _loadData();
     } else {
-      setState(() => plan.isSelected = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to mark plan. Try again.")),
-      );
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to mark plan.")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8F6),
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F8F6),
+        backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Visit Tracking',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
-        ),
-        centerTitle: true,
+        title: const Text('Visit Tracking', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: Color(0xFF1E293B))),
         actions: [
+          IconButton(onPressed: _selectDate, icon: const Icon(Icons.calendar_month, color: Color(0xFF15803D))),
           TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const VisitedPlansScreen()),
-              );
-            },
-            child: const Text("Plans visited", style: TextStyle(color: Color(0xFF15803D))),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const VisitedPlansScreen())),
+            child: const Text("History", style: TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
           )
         ],
       ),
@@ -222,108 +220,68 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
       )
           : null,
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF46EC13)))
-          : _errorMessage != null
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(_errorMessage!),
-            const SizedBox(height: 10),
-            ElevatedButton(onPressed: _loadData, child: const Text("Retry"))
-          ],
-        ),
-      )
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF15803D)))
           : RefreshIndicator(
         onRefresh: _isShowingToday ? _loadTodayData : _loadData,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionHeaderWithButton(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: _plans.isEmpty
-                      ? const Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(child: Text("No pending plans found.")),
-                  )
-                      : Column(
-                    children: _plans.map((plan) {
-                      return Column(
-                        children: [
-                          CheckboxListTile(
-                            value: plan.isExecuted || plan.isSelected,
-                            onChanged: (plan.isExecuted)
-                                ? null
-                                : (val) {
-                              if (val == true) {
-                                _confirmMarkExecuted(plan);
-                              }
-                            },
-                            activeColor: const Color(0xFF46EC13),
-                            checkColor: Colors.white,
-                            title: Text(
-                              plan.locationSummary.isNotEmpty ? plan.locationSummary : "${plan.village}, ${plan.taluka}",
-                              style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontSize: 14),
-                            ),
-                            subtitle: Text(
-                              "Purpose: ${plan.purpose}",
-                              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-                            ),
-                            secondary: const Icon(Icons.location_on, color: Color(0xFFCBD5E1)),
-                            controlAffinity: ListTileControlAffinity.leading,
-                          ),
-                          if (plan != _plans.last) const Divider(height: 1, indent: 64),
-                        ],
-                      );
-                    }).toList(),
-                  ),
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _buildHeaderCard()),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: _plans.isEmpty
+                  ? const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.only(top: 50), child: Text("No pending plans found."))))
+                  : SliverList(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildVisitCard(_plans[index]),
+                  childCount: _plans.length,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionHeaderWithButton() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildHeaderCard() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF15803D), Color(0xFF166534)]),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              _isShowingToday ? "Today's Plans" : "Select Plans to Execute",
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_headerTitle, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              if (_isShowingToday)
+                IconButton(onPressed: _loadData, icon: const Icon(Icons.close, color: Colors.white, size: 20)),
+            ],
           ),
+          const SizedBox(height: 15),
           Row(
             children: [
-              if (_isShowingToday)
-                TextButton(
-                  onPressed: _loadData,
-                  child: const Text("Show All", style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _loadTodayData,
+                  icon: const Icon(Icons.today, size: 16),
+                  label: const Text("Today"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF15803D)),
                 ),
-              ElevatedButton(
-                onPressed: _loadTodayData,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF15803D),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _selectDate,
+                  icon: const Icon(Icons.event, size: 16),
+                  label: const Text("Pick Date"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.2), foregroundColor: Colors.white),
                 ),
-                child: const Text("Today Plan", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -331,4 +289,45 @@ class _VisitTrackingScreenState extends State<VisitTrackingScreen> {
       ),
     );
   }
+
+  Widget _buildVisitCard(VisitPlan plan) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: const CircleAvatar(
+            backgroundColor: Color(0xFFF1F5F9),
+            child: Icon(Icons.holiday_village_sharp, color: Color(0xFF15803D))
+        ),
+        title: Text(
+            plan.locationSummary.isNotEmpty ? plan.locationSummary : "${plan.village}, ${plan.taluka}",
+            style: const TextStyle(fontWeight: FontWeight.bold)
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(plan.purpose),
+            const SizedBox(height: 4),
+            Text(
+              "Expected Reg: ${plan.expectedRegistrations}",
+              style: const TextStyle(
+                  color: Color(0xFF15803D),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12
+              ),
+            ),
+          ],
+        ),
+        trailing: ElevatedButton(
+          onPressed: () => _confirmMarkExecuted(plan),
+          style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF15803D),
+              foregroundColor: Colors.white
+          ),
+          child: const Text("Mark"),
+        ),
+      ),
+    );
+  }
+
 }

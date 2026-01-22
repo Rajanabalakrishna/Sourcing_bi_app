@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:dropdown_search/dropdown_search.dart'; // Add this package
+import 'package:dropdown_search/dropdown_search.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:mukadam_bi/transport/Transport_provider/transport_model.dart';
 import '../../notes/data.dart';
 import 'Transport_Service.dart';
@@ -16,13 +19,29 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
   final TransportProviderService _service = TransportProviderService();
   final DataEntryService _dataEntryService = DataEntryService();
 
+  // Controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _contactNumberController = TextEditingController();
   final TextEditingController _maxDistanceController = TextEditingController();
   final TextEditingController _vehicleTypeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _capacityController=TextEditingController();
+  final TextEditingController _capacityController = TextEditingController();
+  final TextEditingController _vehicleController = TextEditingController();
+  final TextEditingController _dlNumberController = TextEditingController();
+  final TextEditingController _dobController = TextEditingController();
+  final TextEditingController _aadharNumberController = TextEditingController();
+  final TextEditingController _panNumberController = TextEditingController();
+  final TextEditingController _voterIdController = TextEditingController();
 
+  // File Paths
+  String? _profilePhotoPath;
+  String? _aadharCardPath;
+  String? _panCardPath;
+  String? _voterIdPath;
+  String? _dlPath;
+  String? _rcPath;
+
+  DateTime? _selectedDob;
   bool _isActive = true;
   bool _isLoadingLocations = false;
 
@@ -42,6 +61,53 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
   void initState() {
     super.initState();
     _loadStates();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _contactNumberController.dispose();
+    _maxDistanceController.dispose();
+    _vehicleTypeController.dispose();
+    _notesController.dispose();
+    _capacityController.dispose();
+    _vehicleController.dispose();
+    _dlNumberController.dispose();
+    _dobController.dispose();
+    _aadharNumberController.dispose();
+    _panNumberController.dispose();
+    _voterIdController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage(String type) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      setState(() {
+        if (type == 'profile') _profilePhotoPath = pickedFile.path;
+        if (type == 'aadhar') _aadharCardPath = pickedFile.path;
+        if (type == 'pan') _panCardPath = pickedFile.path;
+        if (type == 'voter') _voterIdPath = pickedFile.path;
+        if (type == 'dl') _dlPath = pickedFile.path;
+        if (type == 'rc') _rcPath = pickedFile.path;
+      });
+    }
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDob ?? DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDob) {
+      setState(() {
+        _selectedDob = picked;
+        _dobController.text = DateFormat('yyyy-MM-dd').format(picked);
+      });
+    }
   }
 
   Future<void> _loadStates() async {
@@ -127,7 +193,7 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
       setState(() => _isLoadingLocations = true);
 
-      final newProvider = TransportProvider(
+      final baseProvider = TransportProvider(
         name: _nameController.text,
         contactNumber: _contactNumberController.text,
         state: _selectedState!['state_name_english'],
@@ -139,33 +205,36 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
         village: _selectedVillage!['villagenameenglish'],
         villageCode: _selectedVillage!['villagecode'].toString(),
         maxDistance: int.parse(_maxDistanceController.text),
-        vehicleType: _vehicleTypeController.text.isEmpty ? null : _vehicleTypeController.text,
+        vehicleType: _vehicleTypeController.text,
         isActive: _isActive,
-        notes: _notesController.text.isEmpty ? null : _notesController.text,
-        capacity:int.tryParse(_capacityController.text)
+        notes: _notesController.text,
+        capacity: int.tryParse(_capacityController.text),
+        vehicleNumber: _vehicleController.text,
+        dlNumber: _dlNumberController.text,
+        driverDob: _selectedDob,
+        aadharNumber: _aadharNumberController.text,
+        panNumber: _panNumberController.text,
+        voterId: _voterIdController.text,
       );
 
       try {
-        await _service.createTransportProvider(newProvider);
-        setState(() => _isLoadingLocations = false);
+        await _service.createTransportProvider(
+          provider: baseProvider,
+          profilePath: _profilePhotoPath,
+          aadharPath: _aadharCardPath,
+          panPath: _panCardPath,
+          voterPath: _voterIdPath,
+          dlPath: _dlPath,
+          rcPath: _rcPath,
+        );
         _showSnackBar('Provider created successfully!');
         Navigator.pop(context);
       } catch (e) {
-        setState(() => _isLoadingLocations = false);
         _showSnackBar('Error: $e', isError: true);
+      } finally {
+        setState(() => _isLoadingLocations = false);
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _contactNumberController.dispose();
-    _maxDistanceController.dispose();
-    _vehicleTypeController.dispose();
-    _notesController.dispose();
-    _capacityController.dispose();
-    super.dispose();
   }
 
   @override
@@ -183,6 +252,7 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
               child: Column(
                 children: [
+                  _buildSectionHeader('BASIC INFORMATION'),
                   _buildTextField(
                     controller: _nameController,
                     label: 'PROVIDER NAME',
@@ -201,6 +271,7 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  _buildSectionHeader('LOCATION DETAILS'),
                   _buildSearchableLocationDropdown(
                     label: 'STATE',
                     value: _selectedState,
@@ -242,6 +313,8 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                     onChanged: (val) => setState(() => _selectedVillage = val),
                   ),
 
+                  const SizedBox(height: 20),
+                  _buildSectionHeader('VEHICLE & DRIVER DETAILS'),
                   _buildTextField(
                     controller: _capacityController,
                     label: 'CAPACITY',
@@ -254,12 +327,34 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                       return null;
                     },
                   ),
-
-
-
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: _vehicleController,
+                    label: 'VEHICLE NUMBER',
+                    hint: 'e.g. MH 12 AB 1234',
+                    icon: Icons.directions_car_filled_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: _dlNumberController,
+                    label: 'DL NUMBER',
+                    hint: 'Enter driving license number',
+                    icon: Icons.assignment_ind_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: AbsorbPointer(
+                      child: _buildTextField(
+                        controller: _dobController,
+                        label: 'DRIVER DOB',
+                        hint: 'yyyy-MM-dd',
+                        icon: Icons.calendar_today_outlined,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: _buildTextField(
@@ -267,17 +362,31 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
                           label: 'MAX DIST (KM)',
                           hint: '0',
                           keyboardType: TextInputType.number,
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'Required';
-                            if (int.tryParse(v) == null) return 'Invalid';
-                            return null;
-                          },
+                          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(child: _buildVehicleDropdown()),
                     ],
                   ),
+
+                  const SizedBox(height: 20),
+                  _buildSectionHeader('DOCUMENT NUMBERS'),
+                  _buildTextField(controller: _aadharNumberController, label: 'AADHAR NUMBER', hint: '12-digit number', icon: Icons.fingerprint),
+                  const SizedBox(height: 20),
+                  _buildTextField(controller: _panNumberController, label: 'PAN NUMBER', hint: 'Enter PAN', icon: Icons.credit_card),
+                  const SizedBox(height: 20),
+                  _buildTextField(controller: _voterIdController, label: 'VOTER ID', hint: 'Enter Voter ID', icon: Icons.how_to_vote),
+
+                  const SizedBox(height: 20),
+                  _buildSectionHeader('UPLOAD DOCUMENTS'),
+                  _buildFilePicker('Profile Photo', _profilePhotoPath, () => _pickImage('profile')),
+                  _buildFilePicker('Aadhar Card', _aadharCardPath, () => _pickImage('aadhar')),
+                  _buildFilePicker('PAN Card', _panCardPath, () => _pickImage('pan')),
+                  _buildFilePicker('Voter ID Card', _voterIdPath, () => _pickImage('voter')),
+                  _buildFilePicker('Driving License', _dlPath, () => _pickImage('dl')),
+                  _buildFilePicker('RC Book', _rcPath, () => _pickImage('rc')),
+
                   const SizedBox(height: 20),
                   _buildStatusToggle(),
                   const SizedBox(height: 20),
@@ -291,19 +400,40 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
               ),
             ),
           ),
-          // Loading Indicator Overlay
           if (_isLoadingLocations)
             Container(
               color: Colors.black.withOpacity(0.3),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF7C3AED),
-                  strokeWidth: 5,
-                ),
-              ),
+              child: const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED), strokeWidth: 5)),
             ),
           _buildBottomButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+      ),
+    );
+  }
+
+  Widget _buildFilePicker(String label, String? path, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: ListTile(
+        title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        subtitle: Text(path != null ? p.basename(path) : 'No file selected', style: const TextStyle(fontSize: 11)),
+        trailing: Icon(path != null ? Icons.check_circle : Icons.upload_file, color: path != null ? Colors.green : const Color(0xFF7C3AED)),
+        onTap: onTap,
       ),
     );
   }
@@ -349,8 +479,6 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     required String displayKey,
     required void Function(Map<String, dynamic>?) onChanged,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
@@ -363,7 +491,6 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
         itemAsString: (item) => item[displayKey]?.toString() ?? '',
         onChanged: onChanged,
         compareFn: (item1, item2) => item1[displayKey] == item2[displayKey],
-        filterFn: (item, filter) => item[displayKey].toString().toLowerCase().contains(filter.toLowerCase()),
         decoratorProps: DropDownDecoratorProps(
           decoration: InputDecoration(
             labelText: label,
@@ -372,19 +499,7 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
             border: InputBorder.none,
           ),
         ),
-        popupProps: PopupProps.menu(
-          showSearchBox: true,
-          searchFieldProps: TextFieldProps(
-            decoration: InputDecoration(
-              hintText: "Search $label...",
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-          menuProps: MenuProps(
-            backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
-          ),
-        ),
+        popupProps: const PopupProps.menu(showSearchBox: true),
         validator: (v) => v == null ? 'Required' : null,
       ),
     );
@@ -395,14 +510,13 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
       ),
       child: DropdownButtonFormField<String>(
         validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-        decoration: InputDecoration(
+        decoration: const InputDecoration(
           labelText: 'VEHICLE TYPE',
-          labelStyle: const TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          labelStyle: TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           border: InputBorder.none,
         ),
         value: _vehicleTypeController.text.isEmpty ? null : _vehicleTypeController.text,
@@ -418,7 +532,6 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
@@ -458,7 +571,6 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 56),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              disabledBackgroundColor: Colors.grey,
             ),
             child: const Text('Create Provider', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),

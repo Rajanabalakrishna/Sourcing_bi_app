@@ -1021,11 +1021,13 @@ class OtherInfoSection extends StatelessWidget {
 class IDNumbersSection extends StatelessWidget {
   final TextEditingController aadharNumberController;
   final TextEditingController panNumberController;
+  final TextEditingController voterIdNumberController; // Add this
 
   const IDNumbersSection({
     super.key,
     required this.aadharNumberController,
     required this.panNumberController,
+    required this.voterIdNumberController, // Add this
   });
 
   @override
@@ -1045,11 +1047,18 @@ class IDNumbersSection extends StatelessWidget {
             controller: panNumberController,
             decoration: const InputDecoration(labelText: 'PAN Number', border: OutlineInputBorder()),
           ),
+          const SizedBox(height: 10),
+          // Added Voter ID Field
+          TextFormField(
+            controller: voterIdNumberController,
+            decoration: const InputDecoration(labelText: 'Voter ID Number', border: OutlineInputBorder()),
+          ),
         ],
       ),
     );
   }
 }
+
 
 class FileUploadsSection extends StatelessWidget {
   final VoidCallback onUploadProfilePhoto;

@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:mukadam_bi/referral/registration_response.dart';
 
 class referralRegistrationService {
-  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/user-registrations/";
-  static const String baseUrl = 'https://supply.bharatintelligence.ai/api/user-registrations/';
+  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/user-registrations/";
+ // static const String baseUrl = 'https://supply.bharatintelligence.ai/api/user-registrations/';
 
   Future<RegistrationResponse> fetchRegistrations({
     required String username, // Changed from int userId to String username

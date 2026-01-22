@@ -12,12 +12,24 @@ class TransportProvider {
   final String villageCode;
   final int maxDistance;
   final String? vehicleType;
-  final int? capacity; // Changed to int?
+  final int? capacity;
   final bool isActive;
   final String? notes;
   final String? baseLocation;
-  final DateTime? createdAt;
-  final DateTime? updatedAt;
+  final String? vehicleNumber;
+  final String? dlNumber;
+  final DateTime? driverDob;
+  final String? aadharNumber;
+  final String? panNumber;
+  final String? voterId;
+
+  // S3 Keys matching your Django model exactly
+  final String? profilePhoto;
+  final String? aadharCard;
+  final String? panCard;
+  final String? voterIdCard;
+  final String? drivingLicense;
+  final String? rcBook;
 
   TransportProvider({
     this.id,
@@ -37,8 +49,18 @@ class TransportProvider {
     required this.isActive,
     this.notes,
     this.baseLocation,
-    this.createdAt,
-    this.updatedAt,
+    this.vehicleNumber,
+    this.dlNumber,
+    this.driverDob,
+    this.aadharNumber,
+    this.panNumber,
+    this.voterId,
+    this.profilePhoto,
+    this.aadharCard,
+    this.panCard,
+    this.voterIdCard,
+    this.drivingLicense,
+    this.rcBook,
   });
 
   Map<String, dynamic> toJson() {
@@ -58,6 +80,20 @@ class TransportProvider {
       'vehicle_type': vehicleType,
       'capacity': capacity,
       'notes': notes,
+      'base_location': baseLocation,
+      'vehicle_number': vehicleNumber,
+      'dl_number': dlNumber,
+      'driver_dob': driverDob?.toIso8601String().split('T')[0],
+      'aadhar_number': aadharNumber,
+      'pan_number': panNumber,
+      'voter_id': voterId,
+      // Field names updated to match your backend exactly
+      'profile_photo': profilePhoto,
+      'aadhar_card': aadharCard,
+      'pan_card': panCard,
+      'voter_id_card': voterIdCard,
+      'driving_license': drivingLicense,
+      'rc_book': rcBook,
     };
   }
 
@@ -80,8 +116,18 @@ class TransportProvider {
       capacity: json['capacity'] is String ? int.tryParse(json['capacity']) : json['capacity'],
       isActive: json['is_active'],
       notes: json['notes'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      vehicleNumber: json['vehicle_number'],
+      dlNumber: json['dl_number'],
+      driverDob: json['driver_dob'] != null ? DateTime.parse(json['driver_dob']) : null,
+      aadharNumber: json['aadhar_number'],
+      panNumber: json['pan_number'],
+      voterId: json['voter_id'],
+      profilePhoto: json['profile_photo'],
+      aadharCard: json['aadhar_card'],
+      panCard: json['pan_card'],
+      voterIdCard: json['voter_id_card'],
+      drivingLicense: json['driving_license'],
+      rcBook: json['rc_book'],
     );
   }
 }

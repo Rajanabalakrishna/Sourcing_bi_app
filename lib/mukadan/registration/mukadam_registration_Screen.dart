@@ -317,6 +317,7 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
         "other_commitments": _otherCommitmentsController.text,
         "aadhar_number": _aadharNumberController.text,
         "pan_number": _panNumberController.text,
+        "voter_id_number": _voterIdNumberController.text,
 
         // Empty Lists for Required API Fields
         "preferred_work_locations": _preferredWorkLocationsListt,
@@ -840,6 +841,9 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
   String? _paymentFrequency;
   bool _advanceRequired = false;
 
+  final TextEditingController _voterIdNumberController = TextEditingController();
+
+
   // Controllers for Work Mode
   String? _workMode;
   final TextEditingController _moveInPreferredRegionController = TextEditingController();
@@ -883,6 +887,7 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
     _villageController.dispose();
     _crewSizeController.dispose();
     _issueTalukaCode.dispose();
+    _voterIdNumberController.dispose();
 
 
     //rate card
@@ -1681,16 +1686,19 @@ class _MukkadamRegistrationScreenState extends State<MukkadamRegistrationScreen>
                     ),
                   ],
                 ),
+
                 ExpansionTile(
-                  title: const Text('ID Numbers', style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                  title: const Text('ID Numbers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   children: [
                     IDNumbersSection(
                       aadharNumberController: _aadharNumberController,
                       panNumberController: _panNumberController,
+                      voterIdNumberController: _voterIdNumberController, // Pass the new controller
                     ),
                   ],
                 ),
+
+
 
                 ExpansionTile(
                   title: const Text('File Uploads (Optional)', style: TextStyle(

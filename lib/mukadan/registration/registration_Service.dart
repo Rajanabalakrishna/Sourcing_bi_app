@@ -10,11 +10,11 @@ import '../authentication/auth_service/auth_service.dart'; // For path.extension
 
 class RegistrationService {
   // Base URL for the main Mukkadam registration endpoint
-  static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+//  static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
 
 
 
- //static const String _mukkadamRegistrationBaseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/";
+ static const String _mukkadamRegistrationBaseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/";
 
   // https://supply.bharatintelligence.ai/api/transport-providers/
   // Dedicated URL for uploading files directly to S3
@@ -28,6 +28,7 @@ class RegistrationService {
     required String s3ObjectName, // This will be the 'name_of_image' in the S3 API
     required String authToken,
   }) async {
+
     final uri = Uri.parse(_s3FileUploadUrl);
     final request = http.MultipartRequest('POST', uri);
 

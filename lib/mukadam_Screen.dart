@@ -12,21 +12,21 @@ import 'package:mukadam_bi/tracking%20control/tracking_control_screen.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
-import 'package:mukadam_bi/transport/transport_provider_list/transport_provider_list_screen.dart';
+//import 'package:mukadam_bi/transport/transport_provider_list/transport_provider_list_screen.dart';
+import 'package:mukadam_bi/verifications/mukadam_dashboard/mukadam_dashborad.dart';
+import 'package:mukadam_bi/verifications/transporter_verifcations/verification_transporter_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'Audio/audio_screen.dart';
+
 import 'contacts/contact_service.dart';
 import 'dial_pad_screen.dart';
 import 'fetch call logs/call_log_service.dart';
 import 'firebase_message.dart';
 import 'getTransport/gettransportscreen.dart';
 import 'map/location_api_service.dart';
-import 'map/map_lat_long_Screen.dart';
 import 'mukadan/authentication/screens/sendOtpScreen.dart';
 import 'mukadan/authentication/userProvider.dart';
-import 'mukadan/get_mukadam_details/mukadam_details_Screen.dart'; // Ensure path matches MukadamListScreen
 import 'mukadan/quick_registration/quick_registration_Screen.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
 import 'notes/end_Screen.dart';
@@ -628,6 +628,29 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
                 const VisitTrackingScreen(),
               ),
 
+              _buildActionCard(
+                "Mukadam Verification",
+                Icons.man,
+                Colors.blueAccent,
+                const MukkadamListScreen(),
+              ),
+
+              _buildActionCard(
+                "Dialpad",
+                Icons.call,
+                Colors.green,
+                const DialPadScreen(),
+              ),
+
+
+
+              _buildActionCard(
+                "Transport verification",
+                Icons.fire_truck_rounded,
+                Colors.red,
+                const PendingVerificationListScreen() ,
+              ),
+
 
 
 
@@ -649,12 +672,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
           SizedBox(height: 25,),
 
-          _buildWideCard(
-            "Call",
-            "Call",
-            Icons.phone,
-            const DialPadScreen(),
-          ),
+
         ],
       ),
     );
@@ -769,7 +787,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
         children: [
           _navItem(Icons.grid_view_rounded, "Home", 0),
           const SizedBox(width: 40), // Space for FAB
-         _navItem(Icons.table_chart_outlined, "Data", 1),
+         _navItem(Icons.table_chart_outlined, "Create plan", 1),
         ],
       ),
     );

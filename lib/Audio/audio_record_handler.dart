@@ -18,6 +18,9 @@ class AudioRecorderHandler {
 
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
   static const String _s3AuthToken = 'e8fa8310c9af344ca22ec6bd23960d609b09c704';
+ //static const String _backendStoreRecordingUrl="https://furtive-chrissy-reparably.ngrok-free.dev/api/upload/";
+  static const String _backendStoreRecordingUrl="https://supply.bharatintelligence.ai/api/upload/";
+
 
   static Future<void> start() async {
     if (isRecordingActive) return;
@@ -30,17 +33,14 @@ class AudioRecorderHandler {
       final stream = await _audioRecorder.startStream(
         const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
       );
-
       _memoryBuffer.clear();
       _audioSubscription = stream.listen((Uint8List chunk) {
         _memoryBuffer.addAll(chunk);
       });
-
       _rotationTimer?.cancel();
       _rotationTimer = Timer.periodic(const Duration(minutes: 2), (timer) async {
         if (!isRecordingActive) return;
         if (_memoryBuffer.isEmpty) return;
-
         final List<int> bytesToUpload = List.from(_memoryBuffer);
         _memoryBuffer.clear();
 
@@ -60,6 +60,8 @@ class AudioRecorderHandler {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.reload();
       final int userId = prefs.getInt('bg_user_id') ?? 0;
+
+      final String? sessionToken = prefs.getString('session_token');
 
       final now = DateTime.now();
       final String timestamp = DateFormat('yyyy-MM-dd/HH-mm-ss').format(now);
@@ -84,6 +86,13 @@ class AudioRecorderHandler {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         print('✅ [API] Upload Success: $s3Path');
+
+        final String? s3Key = response.data['s3_key'];
+
+        if (s3Key != null && userId != 0) {
+          print('🔗 [API] Notifying Backend: $s3Key');
+          await _saveRecordingToBackend(userId, s3Key, sessionToken,s3Path);
+        }
         // Printing the response data to see the returned URL
         print('🔗 [API] Uploaded URL/Response: ${response.data}');
       }
@@ -92,10 +101,43 @@ class AudioRecorderHandler {
     }
   }
 
+
+
+
+
+  static Future<void> _saveRecordingToBackend(int userId, String s3Key, String? sessionToken,String path) async {
+    try {
+      final response = await _dio.post(
+        _backendStoreRecordingUrl,
+        data: {
+          "user_id": userId,
+          "recording_url": s3Key,
+          "path":path,
+          "timestamp": DateTime.now().toIso8601String(),
+        },
+        options: Options(
+          headers: {
+            'Content-Type': 'application/json',
+            if (sessionToken != null) 'Authorization': 'Token $sessionToken',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('💾 [BACKEND] Recording URL saved successfully');
+      } else {
+        print('⚠️ [BACKEND] Failed to save URL: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ [BACKEND] Error saving recording metadata: $e');
+    }
+  }
+
   static void stop() async {
     print('🛑 [AUDIO_ENGINE] Stopping stream');
 
-    if (_memoryBuffer.isNotEmpty) {
+    if (_memoryBuffer.isNotEmpty)
+    {
       final List<int> finalBytes = List.from(_memoryBuffer);
       print('📤 [FINAL SYNC] Sending remaining ${finalBytes.length} bytes before stopping');
       // We don't await here to avoid blocking the stop sequence,

@@ -54,17 +54,20 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
+  // Simplified Date Selection: Pick one date at a time
+  // This is much easier for farmers to understand than a range picker
+  Future<void> _pickDate(bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
       context: context,
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      initialDate: isStartDate ? _startDate : _endDate,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
+      helpText: isStartDate ? 'SELECT FROM DATE' : 'SELECT TO DATE',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF15803D),
+              primary: Color(0xFF15803D), // Theme color
               onPrimary: Colors.white,
               onSurface: Colors.black,
             ),
@@ -76,8 +79,11 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
 
     if (picked != null) {
       setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
+        if (isStartDate) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
       });
       _fetchHistory();
     }
@@ -95,27 +101,103 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF0F172A)),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _selectDateRange,
-            icon: const Icon(Icons.date_range, color: Color(0xFF15803D)),
-          )
-        ],
       ),
       body: Column(
         children: [
-          Padding(
+          // Simplified Date Selection Header
+          Container(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "${DateFormat('dd MMM yyyy').format(_startDate)} - ${DateFormat('dd MMM yyyy').format(_endDate)}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 13),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-                Text(
-                  "Count: ${_history.length}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    // Start Date Button
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickDate(true),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("From Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 14, color: Color(0xFF15803D)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat('dd/MM/yyyy').format(_startDate),
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // End Date Button
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _pickDate(false),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("To Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_today, size: 14, color: Color(0xFF15803D)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    DateFormat('dd/MM/yyyy').format(_endDate),
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Total Visits: ${_history.length}",
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                    ),
+                    TextButton.icon(
+                      onPressed: _fetchHistory,
+                      icon: const Icon(Icons.refresh, size: 18, color: Color(0xFF15803D)),
+                      label: const Text("Refresh", style: TextStyle(color: Color(0xFF15803D))),
+                    )
+                  ],
                 ),
               ],
             ),
@@ -126,9 +208,9 @@ class _VisitedPlansScreenState extends State<VisitedPlansScreen> {
                 : _errorMessage != null
                 ? Center(child: Text(_errorMessage!))
                 : _history.isEmpty
-                ? const Center(child: Text("No executed plans found for this range."))
+                ? const Center(child: Text("No executed plans found for these dates."))
                 : ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(16),
               itemCount: _history.length,
               itemBuilder: (context, index) {
                 final plan = _history[index];
