@@ -1,6 +1,7 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -13,7 +14,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'background_service.dart';
 import 'mukadam_Screen.dart';
 import 'mukadan/authentication/auth_service/auth_service.dart';
 import 'mukadan/authentication/userProvider.dart';
@@ -33,6 +33,23 @@ void main() async {
   //
   // await Permission.location.request();
   // await Permission.locationAlways.request();
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
+  // Enable debug logging for Android
+
+
+
+  await FirebaseAnalytics.instance.logAppOpen();
+
+  //FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+
+  // Set default collection to true
+  // await analytics.setAnalyticsCollectionEnabled(true);
+  //
+  // await analytics.logAppOpen();
+
+
+
 
 
   Map<Permission, PermissionStatus> statuses=await [
@@ -48,9 +65,12 @@ void main() async {
   //   await initializeService();
   // }
 
-  await initializeService();
+  //await initializeService();
 
   await OtpApiService.init();
+
+
+
 
   print('--- APP STARTUP ---');
   if (OtpApiService.sessionToken != null) {
@@ -71,6 +91,9 @@ void main() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('bg_user_id', userProvider.user!.id);
 
+
+
+
     //await FirebaseMsg().initFCM(userProvider.user!.id.toString(), userProvider.user!.mobileNumber.toString());
 
 
@@ -83,7 +106,16 @@ void main() async {
 
   // 2. Initialize Auth Service to load the session token from SharedPreferences
 
-
+  try {
+    await FirebaseAnalytics.instance.logEvent(
+      name: 'app_started_manually',
+      parameters: {
+        'user_id': userProvider.user?.id ?? 'guest',
+      },
+    );
+  } catch (e) {
+    print(e.toString());
+  }
 
 
   runApp(
@@ -95,23 +127,11 @@ void main() async {
     ),
   );
 
-  FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
 
 
 
-  // try {
-  //   print('Attempting to fetch location...');
-  //   Position position = await determinePosition(); // Made public by removing underscore
-  //   print('-------------------------');
-  //   print('SUCCESS: GPS Coordinates Found');
-  //   print('Latitude: ${position.latitude}');
-  //   print('Longitude: ${position.longitude}');
-  //   print('-------------------------');
-  // } catch (e) {
-  //   print('-------------------------');
-  //   print('LOCATION ERROR: $e');
-  //   print('-------------------------');
-  // }
+
+
 }
 
 class MyApp extends StatelessWidget {

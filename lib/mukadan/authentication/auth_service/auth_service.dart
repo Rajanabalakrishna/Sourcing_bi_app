@@ -47,7 +47,7 @@ class OtpApiService {
 
 
       //deployment side
-    //
+
     // final response = await http.post(
     //     Uri.parse("https://supply.bharatintelligence.ai/api/auth/mobile-login/"),
     //     headers: {

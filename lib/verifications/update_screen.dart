@@ -19,6 +19,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
 
   final TextEditingController _panController = TextEditingController();
   final TextEditingController _aadharController = TextEditingController();
+  final TextEditingController _voterController = TextEditingController();
   final TextEditingController _dummyController = TextEditingController();
 
   Map<String, dynamic>? _data;
@@ -41,6 +42,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
         _data = data;
         _panController.text = data['pan_number'] ?? '';
         _aadharController.text = data['aadhar_number'] ?? '';
+        _voterController.text = data['voter_id_number'] ?? '';
         _isLoading = false;
         _localPanPath = null;
         _localAadharPath = null;
@@ -110,6 +112,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
       final updateData = {
         "pan_number": _panController.text,
         "aadhar_number": _aadharController.text,
+        "voter_id_number": _voterController.text,
         if (panS3Key != null) "pan_card_s3_key": panS3Key,
         if (aadharS3Key != null) "aadhar_card_s3_key": aadharS3Key,
         if (profileS3Key != null) "profile_photo_s3_key": profileS3Key,
@@ -138,6 +141,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
     required String? localPath,
     required String type,
     bool showTextField = true,
+    bool showImagePicker = true,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -181,15 +185,16 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          if (!isVerified && showTextField) ...[
+          if (showTextField) ...[
             TextField(
               controller: controller,
+              enabled: !isVerified,
               decoration: InputDecoration(
                 labelText: "$label Number",
                 hintText: "Enter $label Number",
                 prefixIcon: const Icon(Icons.badge_outlined),
                 filled: true,
-                fillColor: const Color(0xFFF8F9FA),
+                fillColor: isVerified ? Colors.grey[100] : const Color(0xFFF8F9FA),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -198,38 +203,39 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          GestureDetector(
-            onTap: isVerified ? null : () => _pickImage(type),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                children: [
-                  if (localPath != null)
-                    Image.file(File(localPath), height: 180, width: double.infinity, fit: BoxFit.cover)
-                  else if (networkImageUrl != null && networkImageUrl.isNotEmpty)
-                    Image.network(
-                      networkImageUrl,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                    )
-                  else
-                    _buildPlaceholder(),
-                  if (!isVerified)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.blueAccent,
-                        radius: 18,
-                        child: Icon(localPath != null || (networkImageUrl?.isNotEmpty ?? false) ? Icons.edit : Icons.add_a_photo, color: Colors.white, size: 18),
+          if (showImagePicker)
+            GestureDetector(
+              onTap: isVerified ? null : () => _pickImage(type),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    if (localPath != null)
+                      Image.file(File(localPath), height: 180, width: double.infinity, fit: BoxFit.cover)
+                    else if (networkImageUrl != null && networkImageUrl.isNotEmpty)
+                      Image.network(
+                        networkImageUrl,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    else
+                      _buildPlaceholder(),
+                    if (!isVerified)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.blueAccent,
+                          radius: 18,
+                          child: Icon(localPath != null || (networkImageUrl?.isNotEmpty ?? false) ? Icons.edit : Icons.add_a_photo, color: Colors.white, size: 18),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -262,6 +268,9 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
     }
 
     bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
+    bool isPanVerified = _data?['is_pan_verified'] ?? false;
+    bool isAadharVerified = _data?['is_aadhaar_verified'] ?? false;
+    bool isVoterVerified = _data?['is_voter_id_verified'] ?? false;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
@@ -291,7 +300,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
             _buildVerificationSection(
               label: "PAN Card",
               type: "PAN",
-              isVerified: _data?['is_pan_verified'] ?? false,
+              isVerified: isPanVerified,
               controller: _panController,
               networkImageUrl: _data?['pan_card_url'],
               localPath: _localPanPath,
@@ -299,10 +308,19 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
             _buildVerificationSection(
               label: "Aadhar Card",
               type: "AADHAR",
-              isVerified: _data?['is_aadhaar_verified'] ?? false,
+              isVerified: isAadharVerified,
               controller: _aadharController,
               networkImageUrl: _data?['aadhar_card_url'],
               localPath: _localAadharPath,
+            ),
+            _buildVerificationSection(
+              label: "Voter ID",
+              type: "VOTER",
+              isVerified: isVoterVerified,
+              controller: _voterController,
+              networkImageUrl: null,
+              localPath: null,
+              showImagePicker: false, // Image picker removed for Voter ID
             ),
             const SizedBox(height: 12),
             ElevatedButton(

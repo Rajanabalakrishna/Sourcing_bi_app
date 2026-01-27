@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:mukadam_bi/referral/referral_service.dart';
-import 'package:mukadam_bi/referral/registration_response.dart';
 import 'package:provider/provider.dart';
 import '../getTransport/gettransportscreen.dart';
 import '../mukadan/authentication/userProvider.dart';
+import '../verifications/mukadam_dashboard/mukadam_service.dart';
+import '../verifications/mukadam_dashboard/mukkadam_data_model.dart';
 
 class DirectoryScreen extends StatefulWidget {
   const DirectoryScreen({super.key});
@@ -14,7 +14,7 @@ class DirectoryScreen extends StatefulWidget {
 }
 
 class _DirectoryScreenState extends State<DirectoryScreen> {
-  late Future<RegistrationResponse> _registrationFuture;
+  late Future<List<MukkadamDataModel>> _mukkadamFuture;
   String _searchQuery = "";
 
   DateTime _startDate = DateTime(2025, 12, 1);
@@ -31,31 +31,44 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
     if (userProvider.user != null) {
       setState(() {
-        _registrationFuture = referralRegistrationService().fetchRegistrations(
-          username: userProvider.user!.username,
-          dateFrom: DateFormat('yyyy-MM-dd').format(_startDate),
-          dateTo: DateFormat('yyyy-MM-dd').format(_endDate),
-        );
+        _mukkadamFuture = MukkadamService().fetchMukkadams(userProvider.user!.id);
       });
     } else {
       setState(() {
-        _registrationFuture = Future.error("User not logged in");
+        _mukkadamFuture = Future.error("User not logged in");
       });
     }
   }
 
-  Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
+  // Simplified Date Selection: Pick one date at a time for better farmer UX
+  Future<void> _pickDate(bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
       context: context,
-      initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
+      initialDate: isStartDate ? _startDate : _endDate,
       firstDate: DateTime(2024),
       lastDate: DateTime(2026, 12, 31),
+      helpText: isStartDate ? 'SELECT FROM DATE' : 'SELECT TO DATE',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF137fec),
+              onPrimary: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
       setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
+        if (isStartDate) {
+          _startDate = picked;
+        } else {
+          _endDate = picked;
+        }
       });
       _loadData();
     }
@@ -63,19 +76,13 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    String dateRangeStr = "${DateFormat('MMM dd').format(_startDate)} - ${DateFormat('MMM dd').format(_endDate)}";
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
 
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
           title: const Text("Directory", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.calendar_month),
-              onPressed: _selectDateRange,
-            )
-          ],
           backgroundColor: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.95),
           surfaceTintColor: Colors.transparent,
           bottom: const TabBar(
@@ -91,14 +98,81 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
         ),
         body: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+            // Farmer Friendly Date Selection UI
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C252E) : Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
-                  ActionChip(
-                    avatar: const Icon(Icons.date_range, size: 16),
-                    label: Text(dateRangeStr),
-                    onPressed: _selectDateRange,
+                  // From Date Button
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _pickDate(true),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("From Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF137fec)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  DateFormat('dd/MM/yyyy').format(_startDate),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // To Date Button
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _pickDate(false),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("To Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF137fec)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  DateFormat('dd/MM/yyyy').format(_endDate),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -115,7 +189,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                   hintText: "Search by name...",
                   prefixIcon: const Icon(Icons.search, color: Colors.grey),
                   filled: true,
-                  fillColor: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1C252E) : Colors.white,
+                  fillColor: isDark ? const Color(0xFF1C252E) : Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 ),
@@ -140,23 +214,25 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
   }
 
   Widget _buildRegistrationList() {
-    return FutureBuilder<RegistrationResponse>(
-      future: _registrationFuture,
+    return FutureBuilder<List<MukkadamDataModel>>(
+      future: _mukkadamFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
-        } else if (!snapshot.hasData || snapshot.data!.mukkadams.isEmpty) {
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Text("No registrations found."));
         }
 
-        final filteredMukkadams = snapshot.data!.mukkadams.where((m) {
-          return m.name.toLowerCase().contains(_searchQuery);
+        final filteredMukkadams = snapshot.data!.where((m) {
+          bool matchesSearch = m.mukkadamName.toLowerCase().contains(_searchQuery);
+          bool isFullyVerified = m.isPanVerified && m.isAadharVerified;
+          return matchesSearch && isFullyVerified;
         }).toList();
 
         if (filteredMukkadams.isEmpty) {
-          return const Center(child: Text("No matching registrations."));
+          return const Center(child: Text("No verified registrations found."));
         }
 
         return ListView.separated(
@@ -173,7 +249,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
 }
 
 class MukkadamCard extends StatelessWidget {
-  final Mukkadam mukkadam;
+  final MukkadamDataModel mukkadam;
   const MukkadamCard({super.key, required this.mukkadam});
 
   @override
@@ -196,7 +272,7 @@ class MukkadamCard extends StatelessWidget {
             radius: 28,
             backgroundColor: const Color(0xFF137fec),
             child: Text(
-              mukkadam.name.isNotEmpty ? mukkadam.name[0].toUpperCase() : "?",
+              mukkadam.mukkadamName.isNotEmpty ? mukkadam.mukkadamName[0].toUpperCase() : "?",
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
@@ -205,13 +281,19 @@ class MukkadamCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(mukkadam.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                //Text("Mobile: ${mukkadam.mobile}", style: const TextStyle(color: Color(0xFF137fec), fontSize: 14)),
+                Text(mukkadam.mukkadamName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 Text("Village: ${mukkadam.village} • Crew: ${mukkadam.crewSize}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                const SizedBox(height: 4),
+                const Row(
+                  children: [
+                    Icon(Icons.verified, color: Colors.green, size: 14),
+                    SizedBox(width: 4),
+                    Text("Fully Verified", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ],
+                )
               ],
             ),
           ),
-         // const Icon(Icons.chevron_right, color: Colors.grey),
         ],
       ),
     );

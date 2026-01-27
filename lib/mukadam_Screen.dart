@@ -1,4 +1,5 @@
 import 'package:call_log/call_log.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
@@ -8,7 +9,6 @@ import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
 import 'package:mukadam_bi/sms/sms_service.dart';
 import 'package:mukadam_bi/sqflite/local_db.dart';
-import 'package:mukadam_bi/tracking%20control/tracking_control_screen.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
@@ -19,6 +19,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'AnalyticsDebugService.dart';
 import 'contacts/contact_service.dart';
 import 'dial_pad_screen.dart';
 import 'fetch call logs/call_log_service.dart';
@@ -33,6 +34,77 @@ import 'notes/end_Screen.dart';
 import 'notes/todo_screen.dart';
 import 'notes/visitApiService.dart'; // Assuming this contains DataEntryScreen
 
+
+
+
+import 'package:geolocator/geolocator.dart' as geo; // Use 'as geo' to avoid conflicts
+
+class LocationRequiredScreen extends StatelessWidget {
+
+  final VoidCallback onRetry;
+
+  const LocationRequiredScreen({super.key, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        padding: const EdgeInsets.all(24),
+        width: double.infinity,
+        color: Colors.white,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+
+            const Icon(Icons.location_off_rounded, size: 80, color: Colors.redAccent),
+
+            const SizedBox(height: 24),
+
+            const Text(
+              "GPS is Turned Off",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 12),
+
+            const Text(
+              "Your system location (GPS) is turned off. Please turn it on to continue using the app.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+
+            const SizedBox(height: 32),
+
+            ElevatedButton(
+              onPressed: () async {
+                // This opens the system GPS toggle screen directly
+                await geo.Geolocator.openLocationSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3B82F6),
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+              ),
+              child: const Text("Turn on GPS", style: TextStyle(color: Colors.white)),
+            ),
+
+            const SizedBox(height: 16),
+
+            TextButton(
+              onPressed: onRetry,
+              child: const Text("I've turned it on"),
+            )
+
+
+
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
+
 class MukadamDashboard extends StatefulWidget {
   const MukadamDashboard({super.key});
 
@@ -40,15 +112,19 @@ class MukadamDashboard extends StatefulWidget {
   State<MukadamDashboard> createState() => _MukadamDashboardState();
 }
 
-class _MukadamDashboardState extends State<MukadamDashboard> {
+class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   // List of widgets to display for each tab
   late final List<Widget> _pages;
 
+  bool _isLocationEnabled = true;
+
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
     _pages = [
       _buildDashboardContent(), // Modern Grid View
      const DataEntryScreen(),
@@ -56,9 +132,58 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     //_checkAndFetchCallLogs();
     _setupFCM();
     _syncAllData();
-    _checkAndSyncOldLocationData();// Your existing Data Entry Screen
+    _checkAndSyncOldLocationData();
+    _initializeAnalytics();// Your existing Data Entry Screen
+    _checkLocationStatus();
 
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkLocationStatus();
+    }
+  }
+
+  Future<void> _checkLocationStatus() async {
+    ServiceStatus serviceStatus = await Permission.location.serviceStatus;
+    setState(() {
+      _isLocationEnabled = serviceStatus.isEnabled;
+    });
+  }
+
+
+
+  Future<void> _initializeAnalytics() async {
+    // Set user ID for analytics
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    if (userProvider.user != null) {
+      await FirebaseAnalytics.instance.setUserId(
+        id: userProvider.user!.id.toString(),
+      );
+
+      // Set user properties
+      await FirebaseAnalytics.instance.setUserProperty(
+        name: 'user_role',
+        value: userProvider.user!.role ?? 'unknown',
+      );
+
+      await FirebaseAnalytics.instance.setUserProperty(
+        name: 'user_mobile',
+        value: userProvider.user!.mobileNumber ?? 'unknown',
+      );
+    }
+
+    // Log dashboard screen view
+    await FirebaseAnalytics.instance.logScreenView(
+      screenName: 'MukadamDashboard',
+      screenClass: 'MukadamDashboard',
+    );
+  }
+
+
+
+
 
   // //test data
   // Future<void> _checkAndSyncOldLocationData() async {
@@ -201,6 +326,12 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final String userMobile = userProvider.user?.mobileNumber ?? "";
 
+    await AnalyticsDebugService.logDebugEvent('central_team_number', params: {
+      'user_id': userProvider.user?.id ?? 'unknown',
+      'user_mobile': userMobile,
+      'time': DateTime.now().toIso8601String(),
+    });
+
     if (userMobile.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("User mobile number not found")),
@@ -219,19 +350,23 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
         throw Exception("No plans found for today to fetch central team number.");
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      // Fallback to your default number if "centralPhone" is null or empty
+      final String centralPhone = prefs.getString("centralPhone") ?? "+91-804-7361521";
+
+      final int? userId = prefs.getInt('bg_user_id');
+
       // 2. Get the central team phone from the first plan
       // Assuming your VisitPlan model has a field 'centralTeamPhone' mapped to 'central_team_phone'
-      final String centralPhone = visitPlans.first.centralTeamPhone ?? "+91-804-7361521";
+     // final String centralPhone = visitPlans.first.centralTeamPhone ?? "+91-804-7361521";
 
-      print("Central Team Phone: $centralPhone");
+
 
       if (centralPhone.isEmpty) {
         throw Exception("Central team phone number not available in today's plan.");
       }
 
-      final prefs = await SharedPreferences.getInstance();
 
-      final int? userId = prefs.getInt('bg_user_id');
 
       // 3. Initiate Call
       // As requested: fromNumber = central team phone, toNumber = user provider number
@@ -393,7 +528,12 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       List<SmsMessage> messages = await query.getAllSms;
       if (messages.isEmpty) print('No SMS found on device.');
       for (var msg in messages.take(5)) {
-        print('SMS from ${msg.address}: ${msg.body?.substring(0, 20)}...');
+        String body = msg.body ?? "";
+        String preview = body.length > 20 ? "${body.substring(0, 20)}..." : body;
+
+        print('SMS from ${msg.address}: $preview');
+
+       // print('SMS from ${msg.address}: ${msg.body?.substring(0, 20)}...');
       }
       await SmsService().syncSms(context);
     }
@@ -452,7 +592,21 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
     if (confirm == true) {
       // 1. Clear SharedPreferences and Reset Provider via the logout method
-      await Provider.of<UserProvider>(context, listen: false).logout();
+      final userProvider=await Provider.of<UserProvider>(context, listen: false);
+
+      await AnalyticsDebugService.logDebugEvent('user_logout', params: {
+        'user_id': userProvider.user?.id ?? 'unknown',
+        'username': userProvider.user?.username ?? 'unknown',
+        'logout_time': DateTime.now().toIso8601String(),
+      });
+
+      await FirebaseAnalytics.instance.setUserId(id: null);
+
+      // 3. Clear SharedPreferences and Reset Provider via the logout method
+      await userProvider.logout();
+
+
+
 
       // 2. Navigate to SendOtpScreen and remove all previous routes from the stack
       if (mounted) {
@@ -467,13 +621,42 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
 
   void _onItemTapped(int index) {
+
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    String tabName = index == 0 ? "Home" : "Create Plan";
+
+
+
+
+    AnalyticsDebugService.logDebugEvent('bottom_navigation_click', params: {
+      'user_id': userProvider.user?.id ?? 'unknown',
+      'tab_index': index,
+      'tab_name': tabName,
+      'time': DateTime.now().toIso8601String(),
+    });
+
+
     setState(() {
       _selectedIndex = index;
     });
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+
+
+  @override
   Widget build(BuildContext context) {
+
+    if (!_isLocationEnabled) {
+      return LocationRequiredScreen(
+        onRetry: _checkLocationStatus, // Passing the function here
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       body: Stack(
@@ -487,6 +670,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
             child: Column(
               children: [
                 _buildHeader(),
+                //_buildDebugFAB(),
                 Expanded(
                   // FIX 2: Added safety check to prevent black screen if index is out of bounds
                   child: _selectedIndex < _pages.length
@@ -680,7 +864,27 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
 
   Widget _buildActionCard(String title, IconData icon, Color color, Widget destination) {
     return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => destination)),
+      onTap: () async {
+
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        // 1. Create a valid event name (no spaces or newlines)
+        String validEventName = title
+            .replaceAll('\n', '_')
+            .replaceAll(' ', '_')
+            .toLowerCase();
+
+        // 2. Pass the validEventName DIRECTLY as the first argument
+        await AnalyticsDebugService.logDebugEvent(validEventName, params: {
+          'user_id': userProvider.user?.id ?? 'unknown',
+          'card_title': title.replaceAll('\n', ' '), // Clean up for parameters
+          'destination_screen': destination.runtimeType.toString(),
+          'click_time': DateTime.now().toIso8601String(),
+        });
+
+        if (mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
+        }
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
@@ -731,9 +935,26 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
     );
   }
 
+
+
+
+
+
   Widget _buildWideCard(String title, String subtitle, IconData icon, Widget destination) {
     return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => destination)),
+      onTap: () async {
+        // Log Analytics with wide card information
+        await AnalyticsDebugService.logDebugEvent('dashboard_wide_card_click', params: {
+          'card_title': title,
+          'subtitle': subtitle,
+          'destination_screen': destination.runtimeType.toString(),
+          'click_time': DateTime.now().toIso8601String(),
+        });
+
+        if (mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
+        }
+      },
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -774,6 +995,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> {
       ),
     );
   }
+
 
   Widget _buildBottomNav() {
     return BottomAppBar(
@@ -823,3 +1045,9 @@ Widget _buildPlanTile(Map<String, dynamic> plan) {
     subtitle: Text(plan['location_summary'] ?? "No locations selected"),
   );
 }
+
+
+
+
+
+

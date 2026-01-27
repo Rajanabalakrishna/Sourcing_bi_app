@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:mukadam_bi/referral/registration_response.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../verifications/mukadam_dashboard/mukkadam_data_model.dart';
 
 class referralRegistrationService {
-  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/user-registrations/";
- // static const String baseUrl = 'https://supply.bharatintelligence.ai/api/user-registrations/';
+  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/user-registrations/";
+ static const String baseUrl = 'https://supply.bharatintelligence.ai/api/user-registrations/';
 
   Future<RegistrationResponse> fetchRegistrations({
     required String username, // Changed from int userId to String username
@@ -29,4 +32,30 @@ class referralRegistrationService {
       throw Exception("Connection error: $e");
     }
   }
+
+
+
+  // Inside your MukkadamService class
+  Future<List<MukkadamDataModel>> fetchPendingVerificationsss(int userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? sessionToken = prefs.getString('session_token');
+
+    final response = await http.get(
+      Uri.parse('https://supply.bharatintelligence.ai/api/users/$userId/pending-verifications/?type=mukkadam&status=not_started,pending'),  //'https://furtive-chrissy-reparably.ngrok-free.dev
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'Authorization': 'Token $sessionToken',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      final List<dynamic> entities = data['entities'] ?? [];
+      return entities.map((json) => MukkadamDataModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load verifications');
+    }
+  }
+
 }

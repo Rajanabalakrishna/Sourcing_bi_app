@@ -14,9 +14,12 @@ class RegistrationService {
 
 
 
- static const String _mukkadamRegistrationBaseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/";
+// static const String _mukkadamRegistrationBaseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam/";
 
-  // https://supply.bharatintelligence.ai/api/transport-providers/
+ static const String _mukkadamRegistrationBaseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
+
+
+ // https://supply.bharatintelligence.ai/api/transport-providers/
   // Dedicated URL for uploading files directly to S3
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
 

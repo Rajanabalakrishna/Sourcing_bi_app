@@ -5,8 +5,48 @@ import 'package:shared_preferences/shared_preferences.dart';
 //import 'pending_verification_model.dart';
 
 class VerificationService {
-  static const String baseUrl =
-      "https://furtive-chrissy-reparably.ngrok-free.dev/api/users";
+  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/users";
+
+//  static const String baseUrl = "https://supply.bharatintelligence.ai/api/users";
+
+
+
+  Future<String?> uploadFileToS3({
+    required String filePath,
+    required String s3ObjectName,
+  }) async {
+    // Using the working URL and Token from your AudioRecorderHandler
+    final String s3Url = "https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/";
+    final String s3AuthToken = 'e8fa8310c9af344ca22ec6bd23960d609b09c704';
+
+    final uri = Uri.parse(s3Url);
+    final request = http.MultipartRequest('POST', uri);
+
+    request.headers['Authorization'] = 'Token $s3AuthToken';
+    request.headers['ngrok-skip-browser-warning'] = 'true';
+
+    // IMPORTANT: Field names must match the working audio recorder logic
+    request.fields['name_of_image'] = s3ObjectName;
+    request.files.add(await http.MultipartFile.fromPath('image', filePath));
+
+    try {
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print("📡 [S3 DEBUG] Status: ${response.statusCode}");
+      print("📡 [S3 DEBUG] Body: ${response.body}");
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData['s3_key']; // This is the key we need for the patch
+      }
+      return null;
+    } catch (e) {
+      print("❌ S3 Upload Error: $e");
+      return null;
+    }
+  }
+
 
   Future<List<VerificationEntity>> fetchPendingVerifications(int userId) async {
     final url = Uri.parse(

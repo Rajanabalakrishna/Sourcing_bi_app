@@ -15,6 +15,7 @@ class MukkadamListScreen extends StatefulWidget {
 class _MukkadamListScreenState extends State<MukkadamListScreen> {
   late Future<List<MukkadamDataModel>> _futureMukkadams;
   final MukkadamService _mukkadamService = MukkadamService();
+  String _searchQuery = ""; // Added search query state
 
   @override
   void initState() {
@@ -31,12 +32,12 @@ class _MukkadamListScreenState extends State<MukkadamListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // Modern light background
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
         title: const Text(
-          'Not verified list',
+          'Not verified Mukadam list',
           style: TextStyle(
             color: Color(0xFF1A1A1A),
             fontWeight: FontWeight.w800,
@@ -47,158 +48,190 @@ class _MukkadamListScreenState extends State<MukkadamListScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: FutureBuilder<List<MukkadamDataModel>>(
-        future: _futureMukkadams,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
-              ),
-            );
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.grey)),
-                ],
-              ),
-            );
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No Mukkadams found.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final mukkadams = snapshot.data!;
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            itemCount: mukkadams.length,
-            physics: const BouncingScrollPhysics(),
-            itemBuilder: (context, index) {
-              final mukkadam = mukkadams[index];
-
-              // Logic for indicator color and status text
-              Color indicatorColor = mukkadam.isPending ? Colors.yellow : Colors.red;
-              String statusText = mukkadam.isPending ? 'Pending' : 'Not Verified';
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+      body: Column(
+        children: [
+          // Added Search Bar like Directory Screen
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: "Search by name...",
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                child: Material(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                  clipBehavior: Clip.antiAlias,
-                  child: ListTile(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => MukkadamUpdateScreen(mukkadamId: mukkadam.id),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                // boxShadow: [
+                //   BoxShadow(
+                //     color: Colors.black.withOpacity(0.04),
+                //     blurRadius: 10,
+                //     offset: const Offset(0, 4),
+                //   ),
+                // ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<MukkadamDataModel>>(
+              future: _futureMukkadams,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                    ),
+                  );
+                } else if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                        const SizedBox(height: 16),
+                        Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.grey)),
+                      ],
+                    ),
+                  );
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_off_outlined, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No Mukkadams found.',
+                          style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
                         ),
-                      );
-                    },
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    leading: Container(
-                      width: 52,
-                      height: 52,
+                      ],
+                    ),
+                  );
+                }
+
+                // Filter logic for search
+                final filteredMukkadams = snapshot.data!.where((m) {
+                  return m.mukkadamName.toLowerCase().contains(_searchQuery);
+                }).toList();
+
+                if (filteredMukkadams.isEmpty) {
+                  return const Center(child: Text("No matching Mukkadams found."));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  itemCount: filteredMukkadams.length,
+                  physics: const BouncingScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final mukkadam = filteredMukkadams[index];
+
+                    //bool isAtLeastOneVerified = mukkadam.isAadharVerified || mukkadam.isPanVerified;
+                    bool isAnyVerified = mukkadam.isAadharVerified ||
+                        mukkadam.isPanVerified ||
+                        mukkadam.isVoterIdVerified ||
+                        mukkadam.isFaceVerified;
+                    Color indicatorColor = isAnyVerified ? Colors.yellow : Colors.red;
+                    String statusText = isAnyVerified? 'Pending' : 'Not Verified';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blueAccent.shade100, Colors.blueAccent.shade400],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.person,
                         color: Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                    title: Text(
-                      mukkadam.mukkadamName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: Color(0xFF2D3436),
-                      ),
-                    ),
-                    subtitle: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'ID: ${mukkadam.id}',
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          CircleAvatar(
-                            radius: 6,
-                            backgroundColor: indicatorColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            statusText,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => MukkadamUpdateScreen(mukkadamId: mukkadam.id),
+                              ),
+                            );
+                          },
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          leading: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.blueAccent.shade100, Colors.blueAccent.shade400],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.person, color: Colors.white, size: 26),
+                          ),
+                          title: Text(
+                            mukkadam.mukkadamName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              color: Color(0xFF2D3436),
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'ID: ${mukkadam.id}',
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                CircleAvatar(radius: 6, backgroundColor: indicatorColor),
+                                const SizedBox(width: 4),
+                                Text(statusText, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          trailing: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blueAccent.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.blueAccent),
+                          ),
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        size: 16,
-                        color: Colors.blueAccent,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

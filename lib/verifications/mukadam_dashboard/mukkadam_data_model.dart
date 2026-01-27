@@ -5,7 +5,10 @@ class MukkadamDataModel {
   final String crewSize;
   final String mobileNumbers;
   final String createdAt;
-  final bool isPending; // true = yellow (pending), false = red (not verified)
+  final bool isAadharVerified;
+  final bool isPanVerified;
+  final bool isVoterIdVerified;
+  final bool isFaceVerified;
 
   MukkadamDataModel({
     required this.id,
@@ -14,19 +17,22 @@ class MukkadamDataModel {
     required this.crewSize,
     required this.mobileNumbers,
     required this.createdAt,
-    required this.isPending,
+    required this.isAadharVerified,
+    required this.isPanVerified,
+    required this.isVoterIdVerified,
+    required this.isFaceVerified,
   });
 
   factory MukkadamDataModel.fromJson(Map<String, dynamic> json) {
-    // Mapping from the nested 'entity' object in the API response
     final entity = json['entity'] ?? {};
-
-    // Check verifications list for verification_id
     final List<dynamic> verifications = json['verifications'] ?? [];
 
-    // Logic: If at least one verification_id is not null, it is pending (yellow).
-    // If all verification_ids are null, it is not verified (red).
-    bool hasAtLeastOneVerificationId = verifications.any((v) => v['verification_id'] != null);
+    bool aadharVerified = verifications.any((v) => v['is_aadhaar_verified'] == true);
+    bool panVerified = verifications.any((v) => v['is_pan_verified'] == true);
+    bool voterVerified = verifications.any((v) => v['is_voter_id_verified'] == true);
+    bool faceVerified = verifications.any((v) =>
+    v['is_face_match_verified'] == true && v['is_face_liveness_verified'] == true
+    );
 
     return MukkadamDataModel(
       id: entity['id'] ?? 0,
@@ -35,7 +41,10 @@ class MukkadamDataModel {
       crewSize: entity['crew_size']?.toString() ?? '',
       mobileNumbers: entity['mobile'] ?? '',
       createdAt: entity['created_at'] ?? '',
-      isPending: hasAtLeastOneVerificationId,
+      isAadharVerified: aadharVerified,
+      isPanVerified: panVerified,
+      isVoterIdVerified: voterVerified,
+      isFaceVerified: faceVerified,
     );
   }
 }

@@ -20,11 +20,15 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       if (!(await service.isRunning())) {
         await service.startService();
       } else {
+
         service.invoke("startRecording");
+
       }
     } else {
+
       await prefs.setBool('is_audio_active', false);
       service.invoke("stopRecording");
+
     }
   }
 }
@@ -42,8 +46,11 @@ Future<void> _processRemoteAction(RemoteMessage message) async {
       if (!isRunning) await service.startService();
 
       Future.delayed(const Duration(milliseconds: 500), () {
+
         print("📤 Invoking startRecording event...");
+
         service.invoke("startRecording");
+
       });
     } else {
       print("📤 Invoking stopRecording event...");
@@ -147,7 +154,7 @@ class FirebaseMsg {
 
   //
   Future<Map<String, dynamic>?> fetchServerTokenData(String mobileNumber) async {
-    final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/user-tokens/?mobile_number=$mobileNumber');
+    final url = Uri.parse('https://supply.bharatintelligence.ai/api/fcm/user-tokens/?mobile_number=$mobileNumber');  //https://furtive-chrissy-reparably.ngrok-free.dev
 
     // Fetch the authToken from SharedPreferences
     final prefs = await SharedPreferences.getInstance();
@@ -173,10 +180,10 @@ class FirebaseMsg {
 
 
   Future<void> sendTokenToBackend(String userId, String mobileNumber, String token) async {
-   final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');
+  // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/save-fcm-token/');//https://furtive-chrissy-reparably.ngrok-free.dev
 
-    // final url = Uri.parse(
-    //     'https://supply.bharatintelligence.ai/api/save-fcm-token/');
+    final url = Uri.parse(
+        'https://supply.bharatintelligence.ai/api/save-fcm-token/');
 
     try {
       final response = await http.post(
@@ -197,9 +204,9 @@ class FirebaseMsg {
   }
 
   Future<void> updateTokenOnBackend(String mobileNumber, String newToken) async {
-   final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
-   //  final url = Uri.parse(
-   //      'https://supply.bharatintelligence.ai/api/fcm/update-token/');
+  // final url = Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/fcm/update-token/');
+    final url = Uri.parse(
+        'https://supply.bharatintelligence.ai/api/fcm/update-token/');
 
    final prefs = await SharedPreferences.getInstance();
    final authToken = prefs.getString('session_token');

@@ -65,19 +65,36 @@ class EntityDetails {
   }
 }
 
+
 class VerificationStatus {
+  final String type;
   final String typeDisplay;
   final String status;
+  final bool isAadhaarVerified;
+  final bool isPanVerified;
+  final bool isRcVerified;
+  final bool isDlVerified;
 
   VerificationStatus({
+    required this.type,
     required this.typeDisplay,
     required this.status,
+    required this.isAadhaarVerified,
+    required this.isPanVerified,
+    required this.isRcVerified,
+    required this.isDlVerified,
   });
 
   factory VerificationStatus.fromJson(Map<String, dynamic> json) {
     return VerificationStatus(
-      typeDisplay: json['type_display'],
-      status: json['status'],
+      type: json['type'] ?? '',
+      typeDisplay: json['type_display'] ?? '',
+      status: json['status'] ?? '',
+      isAadhaarVerified: json['is_aadhaar_verified'] ?? false,
+      isPanVerified: json['is_pan_verified'] ?? false,
+      isRcVerified: json['is_rc_verified'] ?? false,
+      isDlVerified: json['is_dl_verified'] ?? false,
     );
   }
 }
+

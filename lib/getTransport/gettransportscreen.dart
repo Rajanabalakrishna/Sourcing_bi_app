@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:mukadam_bi/getTransport/transport_registration_response.dart';
-import 'package:mukadam_bi/getTransport/transport_registration_service.dart';
+import 'package:mukadam_bi/verifications/transporter_verifcations/verification_model.dart';
+
 import 'package:provider/provider.dart';
 import '../mukadan/authentication/userProvider.dart';
+import '../verifications/transporter_verifcations/verificatrion_service.dart';
 
 class TransportDirectoryScreen extends StatefulWidget {
   final String searchQuery;
@@ -21,7 +22,8 @@ class TransportDirectoryScreen extends StatefulWidget {
 }
 
 class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
-  late Future<TransportRegistrationResponse> _registrationFuture;
+  late Future<List<VerificationEntity>> _verificationFuture;
+  final VerificationService _verificationService = VerificationService();
 
   @override
   void initState() {
@@ -29,7 +31,6 @@ class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
     _loadData();
   }
 
-  // Reload data if the date range changes in the parent widget
   @override
   void didUpdateWidget(covariant TransportDirectoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -40,45 +41,48 @@ class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
 
   void _loadData() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    // Use the actual user ID from the provider
     int userId = userProvider.user?.id ?? 29;
 
     setState(() {
-      _registrationFuture = getTransportRegistrationService().fetchRegistrations(
-        userId: userId,
-        dateFrom: widget.dateFrom,
-        dateTo: widget.dateTo,
-      );
+      // Loading data from fetchPendingVerifications as requested
+      _verificationFuture = _verificationService.fetchPendingVerifications(userId);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<TransportRegistrationResponse>(
-      future: _registrationFuture,
+    return FutureBuilder<List<VerificationEntity>>(
+      future: _verificationFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         } else if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}"));
-        } else if (!snapshot.hasData || snapshot.data!.transporters.isEmpty) {
-          return const Center(child: Text("No transporters found for this date range."));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("No transporters found."));
         }
 
-        final filteredTransporters = snapshot.data!.transporters.where((t) {
-          return t.name.toLowerCase().contains(widget.searchQuery.toLowerCase());
+        // Filter: Load/Show data if and only if is_rc_verified && is_dl_verified == true
+        final filteredEntities = snapshot.data!.where((entity) {
+          bool isRcVerified = entity.verifications.any((v) => v.isRcVerified == true);
+          bool isDlVerified = entity.verifications.any((v) => v.isDlVerified == true);
+
+          bool matchesVerification = isRcVerified && isDlVerified;
+          bool matchesSearch = entity.entity.name.toLowerCase().contains(widget.searchQuery.toLowerCase());
+
+          return matchesVerification && matchesSearch;
         }).toList();
 
-        if (filteredTransporters.isEmpty) {
-          return const Center(child: Text("No matching transporters."));
+        if (filteredEntities.isEmpty) {
+          return const Center(child: Text("No verified transporters match your search."));
         }
 
         return ListView.separated(
           padding: const EdgeInsets.all(16),
-          itemCount: filteredTransporters.length,
+          itemCount: filteredEntities.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            return TransporterCard(transporter: filteredTransporters[index]);
+            return TransporterCard(entity: filteredEntities[index].entity);
           },
         );
       },
@@ -87,8 +91,8 @@ class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
 }
 
 class TransporterCard extends StatelessWidget {
-  final Transporter transporter;
-  const TransporterCard({super.key, required this.transporter});
+  final EntityDetails entity;
+  const TransporterCard({super.key, required this.entity});
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +120,7 @@ class TransporterCard extends StatelessWidget {
             radius: 28,
             backgroundColor: Colors.orangeAccent,
             child: Text(
-              transporter.name.isNotEmpty ? transporter.name[0].toUpperCase() : "?",
+              entity.name.isNotEmpty ? entity.name[0].toUpperCase() : "?",
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ),
@@ -126,24 +130,23 @@ class TransporterCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transporter.name,
+                  entity.name,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
-                // Text(
-                //   "Mobile: ${transporter.mobile}",
-                //   style: const TextStyle(color: Color(0xFF137fec), fontSize: 14),
-                // ),
                 Text(
-                  "Village: ${transporter.village}",
+                  "Contact: ${entity.contactNumber}",
+                  style: const TextStyle(color: Color(0xFF137fec), fontSize: 14),
+                ),
+                Text(
+                  "Location: ${entity.baseLocation}",
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.local_shipping, color: Colors.grey),
+          const Icon(Icons.verified, color: Colors.green),
         ],
       ),
     );
   }
 }
-

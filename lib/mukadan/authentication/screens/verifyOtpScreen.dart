@@ -1,8 +1,10 @@
 
 
 import 'dart:async';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../AnalyticsDebugService.dart';
 import '../../../mukadam_Screen.dart';
 import '../auth_service/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,7 +65,21 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
         Provider.of<UserProvider>(context, listen: false)
             .setUserData(widget.authData);
         final prefs = await SharedPreferences.getInstance();
+
+        final user = widget.authData.user;
+        await FirebaseAnalytics.instance.setUserId(id: user.id.toString());
+
+        await AnalyticsDebugService.logDebugEvent('login_success', params: {
+          'user_id': user.id,
+          'username': user.username,
+          'phone_number': widget.phoneNumber,
+          'login_time': DateTime.now().toString(),
+        });
+
         await prefs.setBool('isLoggedIn', true);
+
+
+
         //
         // Navigator.pushAndRemoveUntil(
         //     context,

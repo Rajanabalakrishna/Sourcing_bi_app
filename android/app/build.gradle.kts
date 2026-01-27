@@ -3,6 +3,8 @@ plugins {
     // START: FlutterFire Configuration
     id("com.google.gms.google-services")
     // END: FlutterFire Configuration
+    id("com.google.firebase.crashlytics") version "3.0.2" apply false // if using crashlytics
+
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -46,6 +48,17 @@ flutter {
 }
 
 dependencies {
+
+    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+
+
+
+    // Add the dependency for the Google Analytics library
+    implementation("com.google.firebase:firebase-analytics")
     // UPDATED: Version changed from 2.0.3 to 2.1.4 to satisfy flutter_local_notifications requirements
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+
+
+
 }

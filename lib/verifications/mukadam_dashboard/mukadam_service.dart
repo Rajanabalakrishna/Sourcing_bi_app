@@ -7,8 +7,12 @@ import 'mukkadam_data_model.dart';
 
 
 class MukkadamService {
-  static const String dashboardUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/dashboard/user";
-  static const String detailUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam";
+ // static const String dashboardUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/dashboard/user";
+ // static const String detailUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/mukkadam";
+
+  static const String dashboardUrl = "https://supply.bharatintelligence.ai/api/dashboard/user";
+  static const String detailUrl = "https://supply.bharatintelligence.ai/api/mukkadam";
+
 
 
   Future<String?> uploadFileToS3({
@@ -59,7 +63,7 @@ class MukkadamService {
 
     // URL replaced with the requested verification endpoint
     final response = await http.get(
-      Uri.parse('https://furtive-chrissy-reparably.ngrok-free.dev/api/users/$userId/pending-verifications/?type=mukkadam&status=not_started,pending'),
+      Uri.parse('https://supply.bharatintelligence.ai/api/users/$userId/pending-verifications/?type=mukkadam&status=not_started,pending'), // https://furtive-chrissy-reparably.ngrok-free.dev
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',

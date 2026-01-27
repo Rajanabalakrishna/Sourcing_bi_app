@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:mukadam_bi/verifications/transporter_verifcations/verificatrion_service.dart';
+import 'package:path/path.dart' as p;
 
 class TransporterUpdateScreen extends StatefulWidget {
   final int transporterId;
@@ -12,12 +15,24 @@ class TransporterUpdateScreen extends StatefulWidget {
 
 class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
   final VerificationService _service = VerificationService();
+  final ImagePicker _picker = ImagePicker();
 
+  final TextEditingController _panController = TextEditingController();
+  final TextEditingController _aadharController = TextEditingController();
+  final TextEditingController _rcController = TextEditingController();
   final TextEditingController _dlController = TextEditingController();
-  final TextEditingController _vehicleController = TextEditingController();
+  final TextEditingController _voterIdController = TextEditingController();
+  final TextEditingController _dummyController = TextEditingController();
 
+  Map<String, dynamic>? _data;
   bool _isLoading = true;
-  String _name = "";
+
+  String? _localPanPath;
+  String? _localAadharPath;
+  String? _localProfilePath;
+  String? _localRcPath;
+  String? _localDlPath;
+  String? _localVoterIdPath;
 
   @override
   void initState() {
@@ -29,10 +44,20 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
     try {
       final data = await _service.fetchTransporterDetails(widget.transporterId);
       setState(() {
-        _name = data['name'] ?? 'Transporter';
+        _data = data;
+        _panController.text = data['pan_number'] ?? '';
+        _aadharController.text = data['aadhar_number'] ?? '';
+        _rcController.text = data['vehicle_number'] ?? '';
         _dlController.text = data['dl_number'] ?? '';
-        _vehicleController.text = data['vehicle_number'] ?? '';
+        _voterIdController.text = data['voter_id'] ?? '';
+
         _isLoading = false;
+        _localPanPath = null;
+        _localAadharPath = null;
+        _localProfilePath = null;
+        _localRcPath = null;
+        _localDlPath = null;
+        _localVoterIdPath = null;
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -40,79 +65,349 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
     }
   }
 
+  Future<void> _pickImage(String type) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1800,
+        maxHeight: 1800,
+        imageQuality: 100,
+      );
+      if (image == null) return;
+
+      setState(() {
+        if (type == "PAN") {
+          _localPanPath = image.path;
+        } else if (type == "AADHAR") {
+          _localAadharPath = image.path;
+        } else if (type == "PROFILE") {
+          _localProfilePath = image.path;
+        } else if (type == "RC") {
+          _localRcPath = image.path;
+        } else if (type == "DL") {
+          _localDlPath = image.path;
+        } else if (type == "VOTER") {
+          _localVoterIdPath = image.path;
+        }
+      });
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+    }
+  }
+
   void _handleUpdate() async {
     setState(() => _isLoading = true);
 
-    final updateData = {
-      "dl_number": _dlController.text.trim(),
-      "vehicle_number": _vehicleController.text.trim(),
-    };
+    try {
+      String? panS3Key;
+      String? aadharS3Key;
+      String? profileS3Key;
+      String? rcS3Key;
+      String? dlS3Key;
+      String? voterS3Key;
 
-    bool success = await _service.updateTransporter(widget.transporterId, updateData);
+      final String contactNumber = _data?['contact_number'] ?? 'unknown';
+      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
-    setState(() => _isLoading = false);
+      // Only allow uploads if the field is NOT verified
+      bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Updated Successfully")));
-      Navigator.pop(context, true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update details")));
+      if (!isFaceVerified && _localProfilePath != null) {
+        final String extension = p.extension(_localProfilePath!).replaceAll('.', '');
+        final String s3Path = "transporter/profilephoto/$contactNumber/profile_$timestamp.$extension";
+        profileS3Key = await _service.uploadFileToS3(filePath: _localProfilePath!, s3ObjectName: s3Path);
+      }
+
+      if (!(_data?['is_pan_verified'] ?? false) && _localPanPath != null) {
+        final String extension = p.extension(_localPanPath!).replaceAll('.', '');
+        final String s3Path = "transporter/pancard/$contactNumber/pan_$timestamp.$extension";
+        panS3Key = await _service.uploadFileToS3(filePath: _localPanPath!, s3ObjectName: s3Path);
+      }
+
+      if (!(_data?['is_aadhaar_verified'] ?? false) && _localAadharPath != null) {
+        final String extension = p.extension(_localAadharPath!).replaceAll('.', '');
+        final String s3Path = "transporter/aadharcard/$contactNumber/aadhar_$timestamp.$extension";
+        aadharS3Key = await _service.uploadFileToS3(filePath: _localAadharPath!, s3ObjectName: s3Path);
+      }
+
+      if (!(_data?['is_rc_verified'] ?? false) && _localRcPath != null) {
+        final String extension = p.extension(_localRcPath!).replaceAll('.', '');
+        final String s3Path = "transporter/rcbook/$contactNumber/rc_$timestamp.$extension";
+        rcS3Key = await _service.uploadFileToS3(filePath: _localRcPath!, s3ObjectName: s3Path);
+      }
+
+      if (!(_data?['is_dl_verified'] ?? false) && _localDlPath != null) {
+        final String extension = p.extension(_localDlPath!).replaceAll('.', '');
+        final String s3Path = "transporter/drivinglicense/$contactNumber/dl_$timestamp.$extension";
+        dlS3Key = await _service.uploadFileToS3(filePath: _localDlPath!, s3ObjectName: s3Path);
+      }
+
+      if (!(_data?['voter_id_verified'] ?? false) && _localVoterIdPath != null) {
+        final String extension = p.extension(_localVoterIdPath!).replaceAll('.', '');
+        final String s3Path = "transporter/voterid/$contactNumber/voter_$timestamp.$extension";
+        voterS3Key = await _service.uploadFileToS3(filePath: _localVoterIdPath!, s3ObjectName: s3Path);
+      }
+
+      final Map<String, dynamic> updateData = {};
+
+      // Only include fields in the update request if they are NOT verified
+      if (!isFaceVerified && profileS3Key != null) updateData["profile_photo"] = profileS3Key;
+
+      if (!(_data?['is_rc_verified'] ?? false)) {
+        updateData["vehicle_number"] = _rcController.text;
+        if (rcS3Key != null) updateData["rc_book"] = rcS3Key;
+      }
+
+      if (!(_data?['is_dl_verified'] ?? false)) {
+        updateData["dl_number"] = _dlController.text;
+        if (dlS3Key != null) updateData["driving_license"] = dlS3Key;
+      }
+
+      if (!(_data?['is_pan_verified'] ?? false)) {
+        updateData["pan_number"] = _panController.text;
+        if (panS3Key != null) updateData["pan_card"] = panS3Key;
+      }
+
+      if (!(_data?['is_aadhaar_verified'] ?? false)) {
+        updateData["aadhar_number"] = _aadharController.text;
+        if (aadharS3Key != null) updateData["aadhar_card"] = aadharS3Key;
+      }
+
+      if (!(_data?['voter_id_verified'] ?? false)) {
+        updateData["voter_id"] = _voterIdController.text;
+        if (voterS3Key != null) updateData["voter_id_card"] = voterS3Key;
+      }
+
+      bool success = await _service.updateTransporter(widget.transporterId, updateData);
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Updated Successfully")));
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update details")));
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      setState(() => _isLoading = false);
     }
+  }
+
+  Widget _buildVerificationSection({
+    required String label,
+    required bool isVerified,
+    required TextEditingController controller,
+    required String? networkImageUrl,
+    required String? localPath,
+    required String type,
+    bool showTextField = true,
+    String? hintText,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF2D3436)),
+              ),
+              if (isVerified)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.verified, color: Colors.green, size: 14),
+                      SizedBox(width: 4),
+                      Text("Verified", style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (showTextField) ...[
+            TextField(
+              controller: controller,
+              enabled: !isVerified, // Disable editing if verified
+              style: TextStyle(color: isVerified ? Colors.grey : Colors.black87),
+              decoration: InputDecoration(
+                labelText: "$label Number",
+                hintText: hintText ?? "Enter $label Number",
+                prefixIcon: Icon(Icons.badge_outlined, color: isVerified ? Colors.grey : Colors.blueAccent),
+                filled: true,
+                fillColor: isVerified ? const Color(0xFFE9ECEF) : const Color(0xFFF8F9FA),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          GestureDetector(
+            onTap: isVerified ? null : () => _pickImage(type), // Disable image picking if verified
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Stack(
+                children: [
+                  if (localPath != null)
+                    Image.file(File(localPath), height: 180, width: double.infinity, fit: BoxFit.cover)
+                  else if (networkImageUrl != null && networkImageUrl.isNotEmpty)
+                    Image.network(
+                      networkImageUrl,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                    )
+                  else
+                    _buildPlaceholder(),
+                  if (!isVerified) // Hide edit icon if verified
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: CircleAvatar(
+                        backgroundColor: Colors.blueAccent,
+                        radius: 18,
+                        child: Icon(localPath != null || (networkImageUrl?.isNotEmpty ?? false) ? Icons.edit : Icons.add_a_photo, color: Colors.white, size: 18),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      height: 120,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blueAccent.withOpacity(0.2), width: 1.5),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.blueAccent.shade200),
+          const SizedBox(height: 8),
+          const Text("Upload Document", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator(strokeWidth: 3)));
     }
+
+    bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: Text("Update $_name", style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        elevation: 0,
         backgroundColor: Colors.white,
-        elevation: 0.5,
-        iconTheme: const IconThemeData(color: Colors.black),
+        centerTitle: true,
+        title: Text(
+          _data?['name'] ?? "Update Transporter",
+          style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.w800),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Transporter Details", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            TextField(
+            _buildVerificationSection(
+              label: "Profile Photo",
+              type: "PROFILE",
+              isVerified: isFaceVerified,
+              controller: _dummyController,
+              networkImageUrl: _data?['profile_photo_url'],
+              localPath: _localProfilePath,
+              showTextField: false,
+            ),
+            _buildVerificationSection(
+              label: "RC Book",
+              type: "RC",
+              isVerified: _data?['is_rc_verified'] ?? false,
+              controller: _rcController,
+              hintText: "Enter Vehicle Number",
+              networkImageUrl: _data?['rc_book_url'],
+              localPath: _localRcPath,
+            ),
+            _buildVerificationSection(
+              label: "Driving License",
+              type: "DL",
+              isVerified: _data?['is_dl_verified'] ?? false,
               controller: _dlController,
-              decoration: InputDecoration(
-                labelText: "DL Number",
-                prefixIcon: const Icon(Icons.badge), // Fixed: Changed from id_card to badge
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+              networkImageUrl: _data?['driving_license_url'],
+              localPath: _localDlPath,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _vehicleController,
-              decoration: InputDecoration(
-                labelText: "Vehicle Number",
-                prefixIcon: const Icon(Icons.local_shipping),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
+            _buildVerificationSection(
+              label: "PAN Card",
+              type: "PAN",
+              isVerified: _data?['is_pan_verified'] ?? false,
+              controller: _panController,
+              networkImageUrl: _data?['pan_card_url'],
+              localPath: _localPanPath,
             ),
-            const Spacer(),
+            _buildVerificationSection(
+              label: "Aadhar Card",
+              type: "AADHAR",
+              isVerified: _data?['is_aadhaar_verified'] ?? false,
+              controller: _aadharController,
+              networkImageUrl: _data?['aadhar_card_url'],
+              localPath: _localAadharPath,
+            ),
+            _buildVerificationSection(
+              label: "Voter ID",
+              type: "VOTER",
+              isVerified: _data?['voter_id_verified'] ?? false,
+              controller: _voterIdController,
+              networkImageUrl: _data?['voter_id_card_url'],
+              localPath: _localVoterIdPath,
+            ),
+            const SizedBox(height: 12),
             ElevatedButton(
               onPressed: _handleUpdate,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 56),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
               ),
-              child: const Text("Update Transporter", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              child: const Text("Save & Update Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
           ],
         ),
       ),

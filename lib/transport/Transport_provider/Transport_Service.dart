@@ -6,7 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mukadam_bi/transport/Transport_provider/transport_model.dart';
 
 class TransportProviderService {
-  static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  //static const String _baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev";
+  static const String _baseUrl='https://supply.bharatintelligence.ai';
   static const String _s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
 
   // Specific S3 Auth Token added here
