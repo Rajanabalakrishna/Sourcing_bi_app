@@ -40,40 +40,6 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
     }
   }
 
-  // Simplified Date Selection: Pick one date at a time for better farmer UX
-  Future<void> _pickDate(bool isStartDate) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: isStartDate ? _startDate : _endDate,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2026, 12, 31),
-      helpText: isStartDate ? 'SELECT FROM DATE' : 'SELECT TO DATE',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF137fec),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (picked != null) {
-      setState(() {
-        if (isStartDate) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
-      _loadData();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     bool isDark = Theme.of(context).brightness == Brightness.dark;
@@ -98,85 +64,6 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
         ),
         body: Column(
           children: [
-            // Farmer Friendly Date Selection UI
-            Container(
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C252E) : Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // From Date Button
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickDate(true),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("From Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF137fec)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  DateFormat('dd/MM/yyyy').format(_startDate),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // To Date Button
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _pickDate(false),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text("To Date", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.calendar_today, size: 14, color: Color(0xFF137fec)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  DateFormat('dd/MM/yyyy').format(_endDate),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: TextField(
@@ -201,8 +88,7 @@ class _DirectoryScreenState extends State<DirectoryScreen> {
                   _buildRegistrationList(),
                   TransportDirectoryScreen(
                     searchQuery: _searchQuery,
-                    dateFrom: DateFormat('yyyy-MM-dd').format(_startDate),
-                    dateTo: DateFormat('yyyy-MM-dd').format(_endDate),
+
                   ),
                 ],
               ),

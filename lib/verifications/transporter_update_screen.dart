@@ -65,10 +65,41 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
     }
   }
 
-  Future<void> _pickImage(String type) async {
+  void _showImageSourceActionSheet(String type) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.blueAccent),
+              title: const Text('Camera'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(type, ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.blueAccent),
+              title: const Text('Gallery'),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(type, ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage(String type, ImageSource source) async {
     try {
       final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 1800,
         maxHeight: 1800,
         imageQuality: 100,
@@ -109,7 +140,6 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
       final String contactNumber = _data?['contact_number'] ?? 'unknown';
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
 
-      // Only allow uploads if the field is NOT verified
       bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
 
       if (!isFaceVerified && _localProfilePath != null) {
@@ -150,7 +180,6 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
 
       final Map<String, dynamic> updateData = {};
 
-      // Only include fields in the update request if they are NOT verified
       if (!isFaceVerified && profileS3Key != null) updateData["profile_photo"] = profileS3Key;
 
       if (!(_data?['is_rc_verified'] ?? false)) {
@@ -248,7 +277,7 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
           if (showTextField) ...[
             TextField(
               controller: controller,
-              enabled: !isVerified, // Disable editing if verified
+              enabled: !isVerified,
               style: TextStyle(color: isVerified ? Colors.grey : Colors.black87),
               decoration: InputDecoration(
                 labelText: "$label Number",
@@ -265,7 +294,7 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
             const SizedBox(height: 16),
           ],
           GestureDetector(
-            onTap: isVerified ? null : () => _pickImage(type), // Disable image picking if verified
+            onTap: isVerified ? null : () => _showImageSourceActionSheet(type),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Stack(
@@ -282,7 +311,7 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
                     )
                   else
                     _buildPlaceholder(),
-                  if (!isVerified) // Hide edit icon if verified
+                  if (!isVerified)
                     Positioned(
                       bottom: 8,
                       right: 8,

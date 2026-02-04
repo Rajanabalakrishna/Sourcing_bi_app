@@ -5,9 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 //import 'pending_verification_model.dart';
 
 class VerificationService {
-  static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/users";
+  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/users";
 
-//  static const String baseUrl = "https://supply.bharatintelligence.ai/api/users";
+  static const String baseUrl = "https://supply.bharatintelligence.ai/api/users";
 
 
 
@@ -87,7 +87,7 @@ class VerificationService {
   // Add these methods to your existing VerificationService class
 
   Future<Map<String, dynamic>> fetchTransporterDetails(int transporterId) async {
-    final url = Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/transport-providers/$transporterId/");
+    final url = Uri.parse("https://supply.bharatintelligence.ai/api/transport-providers/$transporterId/");
 
     final prefs = await SharedPreferences.getInstance();
     final String? sessionToken = prefs.getString('session_token');
@@ -113,7 +113,7 @@ class VerificationService {
   }
 
   Future<bool> updateTransporter(int transporterId, Map<String, dynamic> data) async {
-    final url = Uri.parse("https://furtive-chrissy-reparably.ngrok-free.dev/api/transport-providers/$transporterId/");
+    final url = Uri.parse("https://supply.bharatintelligence.ai/api/transport-providers/$transporterId/");
 
     final prefs = await SharedPreferences.getInstance();
     final String? sessionToken = prefs.getString('session_token');

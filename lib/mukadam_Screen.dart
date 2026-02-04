@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 import 'package:mukadam_bi/call_stack.dart';
 import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
+import 'package:mukadam_bi/seeplan/plan_list_screen.dart';
+import 'package:mukadam_bi/seeplan/villages_list_screen.dart';
 import 'package:mukadam_bi/sms/sms_service.dart';
 import 'package:mukadam_bi/sqflite/local_db.dart';
 
@@ -39,69 +41,7 @@ import 'notes/visitApiService.dart'; // Assuming this contains DataEntryScreen
 
 import 'package:geolocator/geolocator.dart' as geo; // Use 'as geo' to avoid conflicts
 
-class LocationRequiredScreen extends StatelessWidget {
 
-  final VoidCallback onRetry;
-
-  const LocationRequiredScreen({super.key, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        padding: const EdgeInsets.all(24),
-        width: double.infinity,
-        color: Colors.white,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-
-            const Icon(Icons.location_off_rounded, size: 80, color: Colors.redAccent),
-
-            const SizedBox(height: 24),
-
-            const Text(
-              "GPS is Turned Off",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 12),
-
-            const Text(
-              "Your system location (GPS) is turned off. Please turn it on to continue using the app.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-
-            const SizedBox(height: 32),
-
-            ElevatedButton(
-              onPressed: () async {
-                // This opens the system GPS toggle screen directly
-                await geo.Geolocator.openLocationSettings();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-              ),
-              child: const Text("Turn on GPS", style: TextStyle(color: Colors.white)),
-            ),
-
-            const SizedBox(height: 16),
-
-            TextButton(
-              onPressed: onRetry,
-              child: const Text("I've turned it on"),
-            )
-
-
-
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 
 
@@ -118,7 +58,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
   // List of widgets to display for each tab
   late final List<Widget> _pages;
 
-  bool _isLocationEnabled = true;
+  //bool _isLocationEnabled = true;
 
   @override
   void initState() {
@@ -134,23 +74,13 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     _syncAllData();
     _checkAndSyncOldLocationData();
     _initializeAnalytics();// Your existing Data Entry Screen
-    _checkLocationStatus();
+
 
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkLocationStatus();
-    }
-  }
 
-  Future<void> _checkLocationStatus() async {
-    ServiceStatus serviceStatus = await Permission.location.serviceStatus;
-    setState(() {
-      _isLocationEnabled = serviceStatus.isEnabled;
-    });
-  }
+
+
 
 
 
@@ -652,11 +582,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
   @override
   Widget build(BuildContext context) {
 
-    if (!_isLocationEnabled) {
-      return LocationRequiredScreen(
-        onRetry: _checkLocationStatus, // Passing the function here
-      );
-    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       body: Stack(
@@ -824,6 +750,13 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
                 Icons.call,
                 Colors.green,
                 const DialPadScreen(),
+              ),
+
+              _buildActionCard(
+                "See\nPlans",
+                Icons.navigate_next_outlined,
+                Colors.orange.shade800,
+                const VillagePlansScreen(),
               ),
 
 

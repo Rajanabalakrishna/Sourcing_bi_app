@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:mukadam_bi/verifications/transporter_verifcations/verification_model.dart';
-
 import 'package:provider/provider.dart';
 import '../mukadan/authentication/userProvider.dart';
 import '../verifications/transporter_verifcations/verificatrion_service.dart';
 
 class TransportDirectoryScreen extends StatefulWidget {
   final String searchQuery;
-  final String dateFrom;
-  final String dateTo;
 
   const TransportDirectoryScreen({
     super.key,
     required this.searchQuery,
-    required this.dateFrom,
-    required this.dateTo,
   });
 
   @override
@@ -31,20 +26,11 @@ class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
     _loadData();
   }
 
-  @override
-  void didUpdateWidget(covariant TransportDirectoryScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.dateFrom != widget.dateFrom || oldWidget.dateTo != widget.dateTo) {
-      _loadData();
-    }
-  }
-
   void _loadData() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     int userId = userProvider.user?.id ?? 29;
 
     setState(() {
-      // Loading data from fetchPendingVerifications as requested
       _verificationFuture = _verificationService.fetchPendingVerifications(userId);
     });
   }
@@ -62,12 +48,13 @@ class _TransportDirectoryScreenState extends State<TransportDirectoryScreen> {
           return const Center(child: Text("No transporters found."));
         }
 
-        // Filter: Load/Show data if and only if is_rc_verified && is_dl_verified == true
         final filteredEntities = snapshot.data!.where((entity) {
           bool isRcVerified = entity.verifications.any((v) => v.isRcVerified == true);
           bool isDlVerified = entity.verifications.any((v) => v.isDlVerified == true);
+          bool isAadharVerified = entity.verifications.any((v) => v.isAadhaarVerified == true);
+          bool isPanVerified = entity.verifications.any((v) => v.isPanVerified == true);
 
-          bool matchesVerification = isRcVerified && isDlVerified;
+          bool matchesVerification = isRcVerified && isDlVerified && isAadharVerified && isPanVerified;
           bool matchesSearch = entity.entity.name.toLowerCase().contains(widget.searchQuery.toLowerCase());
 
           return matchesVerification && matchesSearch;

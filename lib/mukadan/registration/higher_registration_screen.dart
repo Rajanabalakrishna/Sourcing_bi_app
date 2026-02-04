@@ -347,6 +347,68 @@ class AvailabilitySection extends StatelessWidget {
 }
 
 
+
+class AvailabilityQuick extends StatelessWidget {
+  // Changed to TextEditingController
+  final TextEditingController startDateController;
+  final VoidCallback onSelectStartDate;
+  // Changed to TextEditingController
+  final TextEditingController endDateController;
+  final VoidCallback onSelectEndDate;
+
+
+  const AvailabilityQuick({
+    super.key,
+    required this.startDateController, // Updated constructor
+    required this.onSelectStartDate,
+    required this.endDateController, // Updated constructor
+    required this.onSelectEndDate,
+
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: onSelectStartDate,
+            child: AbsorbPointer(
+              child: TextFormField(
+                controller: startDateController, // Assigned controller
+                decoration: const InputDecoration(
+                  labelText: 'Start Date',
+                  hintText: 'Select Start Date', // Hint text for initial state
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: onSelectEndDate,
+            child: AbsorbPointer(
+              child: TextFormField(
+                controller: endDateController, // Assigned controller
+                decoration: const InputDecoration(
+                  labelText: 'End Date',
+                  hintText: 'Select End Date', // Hint text for initial state
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+        ],
+      ),
+    );
+  }
+}
+
+
 class RateCardSection extends StatelessWidget {
   final TextEditingController aprilPruningController;
   final TextEditingController bagalBaliFutRemovalController;
@@ -451,6 +513,122 @@ class RateCardSection extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+class RateCardQuick extends StatelessWidget {
+  final TextEditingController aprilPruningController;
+  final TextEditingController bagalBaliFutRemovalController;
+  final TextEditingController berryThinningController;
+  final TextEditingController bunchSelectionController;
+  final TextEditingController bunchThinningController;
+  final TextEditingController bunchTyingController;
+  final TextEditingController bunchVariationController;
+  final TextEditingController defaultRateController;
+  final TextEditingController failFutRemovalController;
+  final TextEditingController fingerThinningController;
+  final TextEditingController firstDippingController;
+  final TextEditingController firstFailFutRemovalController;
+  final TextEditingController harvestingController;
+  final TextEditingController newPlantationController;
+  final TextEditingController otherRateController;
+  final TextEditingController paperRemovalController;
+  final TextEditingController paperWrappingController;
+  final TextEditingController pastingController;
+  final TextEditingController pruningController;
+  final TextEditingController secondDippingController;
+  final TextEditingController secondFailFutRemovalController;
+  final TextEditingController shendaToppingController;
+  final TextEditingController shootTyingController;
+  final TextEditingController shootTyingClipsController;
+  final TextEditingController shootTyingStringsController;
+  final TextEditingController thirdDippingController;
+
+  const RateCardQuick({
+    super.key,
+    required this.aprilPruningController,
+    required this.bagalBaliFutRemovalController,
+    required this.berryThinningController,
+    required this.bunchSelectionController,
+    required this.bunchThinningController,
+    required this.bunchTyingController,
+    required this.bunchVariationController,
+    required this.defaultRateController,
+    required this.failFutRemovalController,
+    required this.fingerThinningController,
+    required this.firstDippingController,
+    required this.firstFailFutRemovalController,
+    required this.harvestingController,
+    required this.newPlantationController,
+    required this.otherRateController,
+    required this.paperRemovalController,
+    required this.paperWrappingController,
+    required this.pastingController,
+    required this.pruningController,
+    required this.secondDippingController,
+    required this.secondFailFutRemovalController,
+    required this.shendaToppingController,
+    required this.shootTyingController,
+    required this.shootTyingClipsController,
+    required this.shootTyingStringsController,
+    required this.thirdDippingController,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        children: [
+          _buildTwoFieldRow(defaultRateController, 'Default Rate', pruningController, 'Pruning'),
+          _buildTwoFieldRow(aprilPruningController, 'April Pruning', pastingController, 'Pasting'),
+          _buildTwoFieldRow(failFutRemovalController, 'Fail Fut Removal', firstFailFutRemovalController, '1st Fail Fut Rem'),
+          _buildTwoFieldRow(secondFailFutRemovalController, '2nd Fail Fut Rem', bagalBaliFutRemovalController, 'Bagal Bali Fut'),
+          _buildTwoFieldRow(firstDippingController, '1st Dipping', secondDippingController, '2nd Dipping'),
+          _buildTwoFieldRow(thirdDippingController, '3rd Dipping', shootTyingController, 'Shoot Tying'),
+          _buildTwoFieldRow(shootTyingStringsController, 'Shoot Tying (Strings)', shootTyingClipsController, 'Shoot Tying (Clips)'),
+          _buildTwoFieldRow(bunchThinningController, 'Bunch Thinning', fingerThinningController, 'Finger Thinning'),
+          _buildTwoFieldRow(berryThinningController, 'Berry Thinning', bunchSelectionController, 'Bunch Selection'),
+          _buildTwoFieldRow(bunchTyingController, 'Bunch Tying', bunchVariationController, 'Bunch Variation'),
+          _buildTwoFieldRow(shendaToppingController, 'Shenda Topping', paperWrappingController, 'Paper Wrapping'),
+          _buildTwoFieldRow(paperRemovalController, 'Paper Removal', harvestingController, 'Harvesting'),
+          _buildTwoFieldRow(newPlantationController, 'New Plantation', otherRateController, 'Other'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTwoFieldRow(TextEditingController c1, String l1, TextEditingController c2, String l2) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: _buildRateField(c1, l1)),
+          const SizedBox(width: 12),
+          Expanded(child: _buildRateField(c2, l2)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRateField(TextEditingController controller, String label) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontSize: 12),
+        border: const OutlineInputBorder(),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      ),
+      keyboardType: TextInputType.number,
+    );
+  }
+}
+
+
 
 
 

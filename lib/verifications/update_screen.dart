@@ -54,10 +54,49 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
     }
   }
 
-  Future<void> _pickImage(String type) async {
+  void _showPickerOptions(String type) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              const ListTile(
+                title: Text(
+                  'Select Image Source',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(type, ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Camera'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(type, ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(String type, ImageSource source) async {
     try {
       final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
+        source: source,
         maxWidth: 1800,
         maxHeight: 1800,
         imageQuality: 100,
@@ -205,7 +244,7 @@ class _MukkadamUpdateScreenState extends State<MukkadamUpdateScreen> {
           ],
           if (showImagePicker)
             GestureDetector(
-              onTap: isVerified ? null : () => _pickImage(type),
+              onTap: isVerified ? null : () => _showPickerOptions(type),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Stack(
