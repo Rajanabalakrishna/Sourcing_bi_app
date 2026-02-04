@@ -24,7 +24,7 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
 
   final List<Permission> _requiredPermissions = [
     Permission.contacts,
-    Permission.sms,
+    Permission.locationWhenInUse,
     Permission.phone,
     Permission.notification,
   ];

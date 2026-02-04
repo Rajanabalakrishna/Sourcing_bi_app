@@ -10,8 +10,8 @@ import 'end_Screen.dart';
 class VisitApiService {
  //
 
-  //static const String _baseUrl = 'https://supply.bharatintelligence.ai';
-  static const String _baseUrl='https://furtive-chrissy-reparably.ngrok-free.dev';
+  static const String _baseUrl = 'https://supply.bharatintelligence.ai';
+  //static const String _baseUrl='https://furtive-chrissy-reparably.ngrok-free.dev';
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

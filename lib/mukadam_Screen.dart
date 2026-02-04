@@ -9,8 +9,6 @@ import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
 import 'package:mukadam_bi/seeplan/plan_list_screen.dart';
 import 'package:mukadam_bi/seeplan/villages_list_screen.dart';
-import 'package:mukadam_bi/sms/sms_service.dart';
-import 'package:mukadam_bi/sqflite/local_db.dart';
 
 // Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
@@ -27,7 +25,7 @@ import 'dial_pad_screen.dart';
 import 'fetch call logs/call_log_service.dart';
 import 'firebase_message.dart';
 import 'getTransport/gettransportscreen.dart';
-import 'map/location_api_service.dart';
+
 import 'mukadan/authentication/screens/sendOtpScreen.dart';
 import 'mukadan/authentication/userProvider.dart';
 import 'mukadan/quick_registration/quick_registration_Screen.dart';
@@ -72,7 +70,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     //_checkAndFetchCallLogs();
     _setupFCM();
     _syncAllData();
-    _checkAndSyncOldLocationData();
+    //_checkAndSyncOldLocationData();
     _initializeAnalytics();// Your existing Data Entry Screen
 
 
@@ -186,65 +184,65 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
 
   //real data
 
-  Future<void> _checkAndSyncOldLocationData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-      final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-      // 1. Fetch REAL data from local database
-      final dbHelper = DatabaseHelper.instance;
-      List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
-
-      if (localData.isNotEmpty) {
-        // Get the date of the oldest record to check if it's from a previous day
-        String oldestRecordDate = localData.first['date'];
-
-        if (oldestRecordDate != todayDate) {
-          print("⏳ [SYNC] Triggering sync with real data from $oldestRecordDate...");
-
-          final Map<String, dynamic> payload = {
-            "user_id": userProvider.user?.id ?? 0,
-            "today_date": todayDate,
-            "locations": localData.map((loc) {
-              // 2. Convert "10:30 AM" to "10:30:00" for Django backend
-              String rawTime = loc['time'];
-              String formattedTime = rawTime;
-
-              try {
-                // Parses "10:30 AM" and formats to "10:30:00"
-                DateTime parsedTime = DateFormat.jm().parse(rawTime);
-                formattedTime = DateFormat("HH:mm:ss").format(parsedTime);
-              } catch (e) {
-                print("Time parsing error: $e");
-              }
-
-              return {
-                "latitude": loc['latitude'],
-                "longitude": loc['longitude'],
-                "date": loc['date'],
-                "time": formattedTime
-              };
-            }).toList(),
-          };
-
-          // 4. Hit the API
-          await LocationApiService.postLocation(payload);
-
-          // 5. SUCCESS: Clear local DB and update sync flag
-          await dbHelper.clearLocations();
-          await prefs.setString("last_successful_sync_date", todayDate);
-
-          print("🚀 [DASHBOARD SYNC] Old data synced and cleared successfully.");
-        } else {
-          print("ℹ️ [DASHBOARD SYNC] Data in DB is from today. Waiting for background schedule.");
-        }
-      }
-    } catch (e) {
-      print("❌ [DASHBOARD SYNC] Failed to sync old data: $e");
-    }
-  }
+  // Future<void> _checkAndSyncOldLocationData() async {
+  //   try {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     final userProvider = Provider.of<UserProvider>(context, listen: false);
+  //
+  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  //
+  //     // 1. Fetch REAL data from local database
+  //     final dbHelper = DatabaseHelper.instance;
+  //     List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
+  //
+  //     if (localData.isNotEmpty) {
+  //       // Get the date of the oldest record to check if it's from a previous day
+  //       String oldestRecordDate = localData.first['date'];
+  //
+  //       if (oldestRecordDate != todayDate) {
+  //         print("⏳ [SYNC] Triggering sync with real data from $oldestRecordDate...");
+  //
+  //         final Map<String, dynamic> payload = {
+  //           "user_id": userProvider.user?.id ?? 0,
+  //           "today_date": todayDate,
+  //           "locations": localData.map((loc) {
+  //             // 2. Convert "10:30 AM" to "10:30:00" for Django backend
+  //             String rawTime = loc['time'];
+  //             String formattedTime = rawTime;
+  //
+  //             try {
+  //               // Parses "10:30 AM" and formats to "10:30:00"
+  //               DateTime parsedTime = DateFormat.jm().parse(rawTime);
+  //               formattedTime = DateFormat("HH:mm:ss").format(parsedTime);
+  //             } catch (e) {
+  //               print("Time parsing error: $e");
+  //             }
+  //
+  //             return {
+  //               "latitude": loc['latitude'],
+  //               "longitude": loc['longitude'],
+  //               "date": loc['date'],
+  //               "time": formattedTime
+  //             };
+  //           }).toList(),
+  //         };
+  //
+  //         // 4. Hit the API
+  //         await LocationApiService.postLocation(payload);
+  //
+  //         // 5. SUCCESS: Clear local DB and update sync flag
+  //         await dbHelper.clearLocations();
+  //         await prefs.setString("last_successful_sync_date", todayDate);
+  //
+  //         print("🚀 [DASHBOARD SYNC] Old data synced and cleared successfully.");
+  //       } else {
+  //         print("ℹ️ [DASHBOARD SYNC] Data in DB is from today. Waiting for background schedule.");
+  //       }
+  //     }
+  //   } catch (e) {
+  //     print("❌ [DASHBOARD SYNC] Failed to sync old data: $e");
+  //   }
+  // }
 
   bool _isCalling = false;
 
@@ -465,7 +463,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
 
        // print('SMS from ${msg.address}: ${msg.body?.substring(0, 20)}...');
       }
-      await SmsService().syncSms(context);
+
     }
 
     print("--- ALL DATA SYNC PROCESSES COMPLETED ---");
@@ -752,12 +750,12 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
                 const DialPadScreen(),
               ),
 
-              _buildActionCard(
-                "See\nPlans",
-                Icons.navigate_next_outlined,
-                Colors.orange.shade800,
-                const VillagePlansScreen(),
-              ),
+              // _buildActionCard(
+              //   "See\nPlans",
+              //   Icons.navigate_next_outlined,
+              //   Colors.orange.shade800,
+              //   const VillagePlansScreen(),
+              // ),
 
 
 
