@@ -54,9 +54,8 @@ void main() async {
 
   Map<Permission, PermissionStatus> statuses=await [
     Permission.location,
-    Permission.locationAlways,
     Permission.notification,
-    Permission.microphone,
+
   ].request();
 
   // if (statuses[Permission.locationAlways]!.isGranted) {

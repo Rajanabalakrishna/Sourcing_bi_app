@@ -17,8 +17,7 @@
 
     <!-- Battery and Background Persistence -->
 
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
 
     <!-- Data Sync Features -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />

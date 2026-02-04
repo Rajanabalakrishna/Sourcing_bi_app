@@ -92,12 +92,7 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   Future<void> _proceedToNextScreen() async {
     if (!mounted) return;
 
-    final service = FlutterBackgroundService();
-    bool isRunning = await service.isRunning();
-    if (!isRunning) {
-      await service.startService();
-      print("🚀 Background Service Started from Splash Screen");
-    }
+
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     await userProvider.loadSavedUser();
 
