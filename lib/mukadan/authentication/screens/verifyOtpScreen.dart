@@ -1,5 +1,3 @@
-
-
 import 'dart:async';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/material.dart';
@@ -13,45 +11,67 @@ import '../userProvider.dart';
 import '../user_model.dart';
 
 class VerifyOtpScreen extends StatefulWidget {
-  final String phoneNumber; // This will now be +91XXXXXXXXXX
+  final String phoneNumber;
   final AuthResponse authData;
 
-  const VerifyOtpScreen({super.key, required this.phoneNumber,required this.authData});
+  const VerifyOtpScreen({
+    super.key,
+    required this.phoneNumber,
+    required this.authData,
+  });
 
   @override
   State<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
 }
 
 class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
-  final List<FocusNode> _focusNodes = List.generate(4, (index) => FocusNode());
-  final List<TextEditingController> _controllers = List.generate(4, (index) => TextEditingController());
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  final List<TextEditingController> _controllers =
+  List.generate(4, (_) => TextEditingController());
 
   Timer? _resendTimer;
   int _resendSeconds = 30;
   bool _canResend = false;
+  bool _isVerifying = false;
+
+  // ── Professional Color Palette (matching PhoneEntryScreen) ──
+  static const Color _primaryColor = Color(0xFF1E3A5F);
+  static const Color _accentColor = Color(0xFF3B82F6);
+  static const Color _successColor = Color(0xFF10B981);
+  static const Color _errorColor = Color(0xFFEF4444);
+  static const Color _backgroundColor = Color(0xFFF8FAFC);
+  static const Color _cardColor = Colors.white;
+  static const Color _textPrimary = Color(0xFF1F2937);
+  static const Color _textSecondary = Color(0xFF6B7280);
+  static const Color _borderColor = Color(0xFFE5E7EB);
 
   @override
   void initState() {
     super.initState();
     _startResendTimer();
-    // Removed _sendOtp() from here because it was already called in PhoneEntryScreen
   }
 
   @override
   void dispose() {
     _resendTimer?.cancel();
-    for (var node in _focusNodes) node.dispose();
-    for (var controller in _controllers) controller.dispose();
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
-
 
   Future<void> _verifyOtp() async {
     String otp = _controllers.map((e) => e.text).join();
     if (otp.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Please enter the complete OTP")));
+      _showSnackBar("Please enter the complete OTP", _errorColor,
+          Icons.error_outline_rounded);
       return;
     }
+
+    setState(() => _isVerifying = true);
 
     try {
       bool verified = await OtpApiService.verifyOtp(
@@ -60,10 +80,13 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
       );
 
       if (verified && mounted) {
-        // Store login status locally
+        // ✅ STEP 1: Persist session to SharedPreferences ONLY after OTP verified
+        await OtpApiService.persistSession(widget.authData);
 
+        // ✅ STEP 2: Update UserProvider
         Provider.of<UserProvider>(context, listen: false)
             .setUserData(widget.authData);
+
         final prefs = await SharedPreferences.getInstance();
 
         final user = widget.authData.user;
@@ -76,27 +99,28 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
           'login_time': DateTime.now().toString(),
         });
 
+        // ✅ STEP 3: Mark as logged in
         await prefs.setBool('isLoggedIn', true);
-
-
-
-        //
-        // Navigator.pushAndRemoveUntil(
-        //     context,
-        //     MaterialPageRoute(builder: (_) => const MukadamDashboard(),);
-        // );
 
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const MukadamDashboard()),
-              (route) => false, // This removes all previous screens (PhoneEntry and VerifyOtp)
+              (route) => false,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: ${e.toString()}")));
+      _showSnackBar(
+        e.toString().replaceAll("Exception: ", ""),
+        _errorColor,
+        Icons.warning_amber_rounded,
+      );
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
     }
   }
 
+
+  // ── RESEND TIMER ──────────────────────────────────────────────
   void _startResendTimer() {
     setState(() {
       _resendSeconds = 30;
@@ -116,13 +140,19 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
   Future<void> _resendOtp() async {
     try {
       await OtpApiService.sendOtp(phoneNumber: widget.phoneNumber);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("OTP resent successfully")));
+      _showSnackBar(
+          "OTP resent successfully", _successColor, Icons.check_circle_rounded);
       _startResendTimer();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      _showSnackBar(
+        e.toString().replaceAll("Exception: ", ""),
+        _errorColor,
+        Icons.warning_amber_rounded,
+      );
     }
   }
 
+  // ── KEYPAD HANDLERS ───────────────────────────────────────────
   void _onKeypadTap(String value) {
     for (int i = 0; i < 4; i++) {
       if (_controllers[i].text.isEmpty) {
@@ -143,130 +173,502 @@ class _VerifyOtpScreenState extends State<VerifyOtpScreen> {
     }
   }
 
+  // ── SNACKBAR HELPER ───────────────────────────────────────────
+  void _showSnackBar(String message, Color color, IconData icon) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
 
-
+  // ── BUILD ─────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color primaryColor = const Color(0xFF13EC13);
-    final Color textColor = isDark ? Colors.white : const Color(0xFF111811);
-
     return Scaffold(
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        backgroundColor: _primaryColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child:
+              const Icon(Icons.agriculture, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              "AGRISERVICES",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.2,
+                color: Colors.white.withOpacity(0.95),
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
-        child: Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 450),
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            color: isDark ? const Color(0xFF171717) : Colors.white,
-            child: Column(
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16.0),
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back_ios_new, color: textColor, size: 20),
-                      onPressed: () => Navigator.pop(context),
+        child: Column(
+          children: [
+            // ── Scrollable top section ──
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 30),
+
+                    // ── Verify Phone Section ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildVerifyPhoneSection(),
                     ),
-                  ),
+
+                    const SizedBox(height: 20),
+
+                    // ── OTP Input Section ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildOtpInputSection(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ── Resend Section ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildResendSection(),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ── Security Info Box ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildSecurityInfoBox(),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ── Verify Button ──
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildVerifyButton(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ── Secure Footer ──
+                    _buildSecureFooter(),
+
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      Text("Verify Phone", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: textColor)),
-                      const SizedBox(height: 16),
-                      RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: const TextStyle(color: Colors.grey, fontSize: 16),
-                          children: [
-                            const TextSpan(text: "Please enter the 4-digit code sent to\n"),
-                            TextSpan(text: widget.phoneNumber, style: TextStyle(fontWeight: FontWeight.bold, color: textColor, height: 1.5)),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 20),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: List.generate(4, (index) => _buildDigitInput(index, primaryColor, textColor)),
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("Didn't receive the code?", style: TextStyle(color: Colors.grey)),
-                          TextButton(
-                            onPressed: _canResend ? _resendOtp : null,
-                            child: Text(_canResend ? "Resend" : "Resend ($_resendSeconds)", style: TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: ElevatedButton(
-                          onPressed: _verifyOtp,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: const Color(0xFF111811),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                          child: const Text("Verify & Proceed", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildKeypad(textColor),
-                      const SizedBox(height: 16),
-                    ],
+              ),
+            ),
+
+            // ── Keypad pinned at bottom ──
+            Container(
+              color: _cardColor,
+              padding: const EdgeInsets.only(bottom: 8, top: 4),
+              child: _buildKeypad(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── VERIFY PHONE SECTION ──────────────────────────────────────
+  Widget _buildVerifyPhoneSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel("Verify Phone"),
+          const SizedBox(height: 14),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                color: _textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(
+                    text: "Please enter the 4-digit code sent to "),
+                TextSpan(
+                  text: widget.phoneNumber,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: _textPrimary,
                   ),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── OTP INPUT SECTION ─────────────────────────────────────────
+  Widget _buildOtpInputSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel("Enter OTP"),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children:
+            List.generate(4, (index) => _buildDigitInput(index)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SINGLE DIGIT INPUT BOX ────────────────────────────────────
+  Widget _buildDigitInput(int index) {
+    final bool hasValue = _controllers[index].text.isNotEmpty;
+    return Container(
+      width: 56,
+      height: 60,
+      decoration: BoxDecoration(
+        color: hasValue
+            ? _accentColor.withOpacity(0.06)
+            : _backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasValue ? _primaryColor : _borderColor,
+          width: 1.5,
+        ),
+      ),
+      child: TextField(
+        controller: _controllers[index],
+        focusNode: _focusNodes[index],
+        readOnly: true,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.w800,
+          color: _textPrimary,
+          letterSpacing: 1,
+        ),
+        decoration: InputDecoration(
+          counterText: "",
+          hintText: "–",
+          hintStyle: TextStyle(
+            color: _textSecondary.withOpacity(0.35),
+            fontWeight: FontWeight.w400,
+            fontSize: 22,
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 10),
+        ),
+      ),
+    );
+  }
+
+  // ── RESEND SECTION ────────────────────────────────────────────
+  Widget _buildResendSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.schedule_rounded,
+              size: 16, color: _textSecondary),
+          const SizedBox(width: 8),
+          const Text(
+            "Didn't receive the code?",
+            style: TextStyle(
+              color: _textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: _canResend ? _resendOtp : null,
+            child: Text(
+              _canResend ? "Resend OTP" : "Resend in ${_resendSeconds}s",
+              style: TextStyle(
+                color: _canResend ? _accentColor : _textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── SECURITY INFO BOX ─────────────────────────────────────────
+  Widget _buildSecurityInfoBox() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _successColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _successColor.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _successColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.verified_user_rounded,
+                color: _successColor, size: 18),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              "Your verification is secure and encrypted. Do not share your OTP with anyone.",
+              style: TextStyle(
+                fontSize: 12,
+                color: _textPrimary,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── VERIFY BUTTON ─────────────────────────────────────────────
+  Widget _buildVerifyButton() {
+    return GestureDetector(
+      onTap: _isVerifying ? null : _verifyOtp,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 54,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color:
+          _isVerifying ? _primaryColor.withOpacity(0.7) : _primaryColor,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: _primaryColor.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: _isVerifying
+              ? const SizedBox(
+            height: 22,
+            width: 22,
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 2.5,
+            ),
+          )
+              : const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.verified_rounded,
+                  color: Colors.white, size: 18),
+              SizedBox(width: 10),
+              Text(
+                "Verify & Proceed",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildDigitInput(int index, Color primary, Color text) {
-    return SizedBox(
-      width: 50,
-      child: TextField(
-        controller: _controllers[index],
-        focusNode: _focusNodes[index],
-        readOnly: true,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: text),
-        decoration: InputDecoration(
-          counterText: "",
-          hintText: "-",
-          hintStyle: const TextStyle(color: Colors.grey),
-          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.withOpacity(0.3), width: 2.5)),
-          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: primary, width: 2.5)),
+  // ── KEYPAD ────────────────────────────────────────────────────
+  Widget _buildKeypad() {
+    final keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0'];
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 400),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      child: GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 2.2,
         ),
+        itemCount: 12,
+        itemBuilder: (context, index) {
+          // ── Backspace key ──
+          if (index == 11) {
+            return InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: _onBackspace,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _errorColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.backspace_outlined,
+                      color: _errorColor, size: 20),
+                ),
+              ),
+            );
+          }
+
+          String val = keys[index];
+
+          // ── Empty slot ──
+          if (val.isEmpty) return const SizedBox.shrink();
+
+          // ── Number key ──
+          return InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => _onKeypadTap(val),
+            child: Center(
+              child: Text(
+                val,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: _textPrimary,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildKeypad(Color textColor) {
-    final keys = ['1','2','3','4','5','6','7','8','9','','0'];
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 3, childAspectRatio: 2),
-      itemCount: 12,
-      itemBuilder: (context, index) {
-        if (index == 11) return IconButton(onPressed: _onBackspace, icon: Icon(Icons.backspace_outlined, color: textColor));
-        String val = keys[index];
-        return InkWell(
-          onTap: val.isEmpty ? null : () => _onKeypadTap(val),
-          child: Center(child: Text(val, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w500, color: textColor))),
-        );
-      },
+  // ── SECTION LABEL HELPER (matching PhoneEntryScreen) ──────────
+  Widget _buildSectionLabel(String label) {
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 16,
+          decoration: BoxDecoration(
+            color: _primaryColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            color: _textPrimary,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── SECURE FOOTER ─────────────────────────────────────────────
+  Widget _buildSecureFooter() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6B7280).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Icon(Icons.lock_rounded,
+              size: 10, color: Color(0xFF6B7280)),
+        ),
+        const SizedBox(width: 6),
+        const Text(
+          "Secure & Encrypted Connection",
+          style: TextStyle(
+            fontSize: 11,
+            color: Color(0xFF6B7280),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }

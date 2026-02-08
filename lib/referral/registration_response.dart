@@ -1,44 +1,79 @@
-class RegistrationResponse {
-  final Map<String, dynamic> summary;
-  final List<Mukkadam> mukkadams;
-
-  RegistrationResponse({required this.summary, required this.mukkadams});
-
-  factory RegistrationResponse.fromJson(Map<String, dynamic> json) {
-    return RegistrationResponse(
-      summary: json['summary'] ?? {},
-      mukkadams: (json['mukkadams'] as List?)
-          ?.map((i) => Mukkadam.fromJson(i))
-          .toList() ?? [],
-    );
-  }
-}
-
-class Mukkadam {
+class MukkadamDataModell {
   final int id;
-  final String name;
-  final String mobile;
+  final String mukkadamName;
   final String village;
+  final String district;
   final String crewSize;
-  final String registeredAt;
+  final String mobileNumbers;
+  final String createdAt;
+  final bool isAadharVerified;
+  final bool isPanVerified;
+  final bool isVoterIdVerified;
+  final bool isFaceVerified;
+  final bool isFullyVerified;
 
-  Mukkadam({
+  MukkadamDataModell({
     required this.id,
-    required this.name,
-    required this.mobile,
+    required this.mukkadamName,
     required this.village,
+    required this.district,
     required this.crewSize,
-    required this.registeredAt,
+    required this.mobileNumbers,
+    required this.createdAt,
+    required this.isAadharVerified,
+    required this.isPanVerified,
+    required this.isVoterIdVerified,
+    required this.isFaceVerified,
+    required this.isFullyVerified,
   });
 
-  factory Mukkadam.fromJson(Map<String, dynamic> json) {
-    return Mukkadam(
-      id: json['id'],
-      name: json['mukkadam_name'] ?? 'N/A',
-      mobile: json['mobile_numbers'] ?? 'N/A',
-      village: json['village'] ?? 'N/A',
-      crewSize: json['crew_size'] ?? '0',
-      registeredAt: json['registered_at'] ?? '',
+  /// At least one verification is done
+  bool get isAnyVerified =>
+      isAadharVerified || isPanVerified || isVoterIdVerified || isFaceVerified;
+
+  /// ALL verifications are done
+  bool get isAllVerified =>
+      isAadharVerified && isPanVerified && isVoterIdVerified && isFaceVerified;
+
+  /// Count of verified items
+  int get verifiedCount => [
+    isAadharVerified,
+    isPanVerified,
+    isVoterIdVerified,
+    isFaceVerified,
+  ].where((v) => v).length;
+
+  factory MukkadamDataModell.fromJson(Map<String, dynamic> json) {
+    final entity = json['entity'] ?? {};
+    final List<dynamic> verifications = json['verifications'] ?? [];
+
+    // Check verification status from verifications array by type + status
+    bool aadharVerified = verifications.any(
+            (v) => v['type'] == 'aadhaar_ocr' && v['status'] == 'completed');
+    bool panVerified = verifications.any(
+            (v) => v['type'] == 'pan_360' && v['status'] == 'completed');
+    bool voterVerified = verifications.any(
+            (v) => v['type'] == 'voter_id' && v['status'] == 'completed');
+    bool faceVerified = verifications.any((v) =>
+    v['type'] == 'face_match' && v['status'] == 'completed');
+
+    // Also check entity-level flags as fallback
+    aadharVerified = aadharVerified || (entity['is_aadhaar_verified'] == true);
+    panVerified = panVerified || (entity['is_pan_verified'] == true);
+
+    return MukkadamDataModell(
+      id: entity['id'] ?? 0,
+      mukkadamName: entity['name'] ?? '',
+      village: entity['village'] ?? '',
+      district: entity['district'] ?? '',
+      crewSize: entity['crew_size']?.toString() ?? '',
+      mobileNumbers: entity['mobile'] ?? '',
+      createdAt: entity['created_at'] ?? '',
+      isAadharVerified: aadharVerified,
+      isPanVerified: panVerified,
+      isVoterIdVerified: voterVerified,
+      isFaceVerified: faceVerified,
+      isFullyVerified: entity['is_fully_verified'] ?? false,
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -16,18 +17,49 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver {
-
+class _SplashScreenState extends State<SplashScreen>
+    with WidgetsBindingObserver {
   bool _isChecking = true;
   String _errorMessage = "";
   String _failedPermission = "";
 
-  final List<Permission> _requiredPermissions = [
-    Permission.contacts,
-    Permission.locationWhenInUse,
-    Permission.phone,
-    Permission.notification,
+  /// All permissions that MUST be granted before the user can proceed.
+  /// Media permissions (photos/videos/audio) are resolved at runtime
+  /// based on Android SDK version.
+  final List<Permission> _basePermissions = [
+    Permission.notification,       // Notifications
+    Permission.locationWhenInUse,  // Location
+    Permission.contacts,           // Contacts
+    Permission.phone,              // Phone
+    Permission.camera,
+    Permission.sms,// Camera (photos + video capture)
   ];
+
+  /// Builds the full required permission list including OS-specific media permissions
+  Future<List<Permission>> _getRequiredPermissions() async {
+    final List<Permission> permissions = List.from(_basePermissions);
+
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      if (sdkInt >= 33) {
+        // Android 13+ uses granular media permissions
+        permissions.addAll([
+          Permission.photos,     // READ_MEDIA_IMAGES + READ_MEDIA_VIDEO
+          Permission.videos,     // READ_MEDIA_VIDEO
+          Permission.audio,      // READ_MEDIA_AUDIO
+        ]);
+      } else {
+        // Android 12 and below uses storage permission
+        permissions.add(Permission.storage);
+      }
+    }
+
+    return permissions;
+  }
+
+  /// Permission label and icon mapping for the UI
 
   @override
   void initState() {
@@ -45,6 +77,7 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Re-check when user returns from settings
       Future.delayed(const Duration(milliseconds: 500), () {
         _initializeApp(shouldRequest: false);
       });
@@ -61,37 +94,96 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
     });
 
     try {
-      // Check Base Permissions (Contacts, SMS, Phone, Notification)
-      for (var p in _requiredPermissions) {
+      final requiredPermissions = await _getRequiredPermissions();
+
+      for (var p in requiredPermissions) {
         var status = await p.status;
+
         if (!status.isGranted) {
-          if (shouldRequest) status = await p.request();
+          if (shouldRequest) {
+            status = await p.request();
+          }
+
           if (!status.isGranted) {
-            _setDenied("Please allow ${p.toString().split('.').last.toUpperCase()} permission.", p.toString());
+            final label = _getPermissionLabel(p);
+            final icon = _getPermissionIcon(p);
+
+            if (status.isPermanentlyDenied) {
+              _setDenied(
+                "$label permission is permanently denied.\nPlease enable it from App Settings.",
+                label,
+                icon,
+                isPermanentlyDenied: true,
+              );
+            } else {
+              _setDenied(
+                "Please allow $label permission to use this app.",
+                label,
+                icon,
+              );
+            }
             return;
           }
         }
       }
 
+      // All permissions granted — proceed
       _proceedToNextScreen();
     } catch (e) {
-      _setDenied("Initialization failed. Check settings manually.", "Error");
+      _setDenied(
+        "Initialization failed. Please check settings manually.",
+        "ERROR",
+        Icons.error_outline,
+      );
     }
   }
 
-  void _setDenied(String message, String permissionName) {
+  String _getPermissionLabel(Permission permission) {
+    if (permission == Permission.notification) return "NOTIFICATIONS";
+    if (permission == Permission.locationWhenInUse) return "LOCATION";
+    if (permission == Permission.contacts) return "CONTACTS";
+    if (permission == Permission.phone) return "PHONE";
+    if (permission == Permission.camera) return "CAMERA";
+    if (permission == Permission.photos) return "PHOTOS & MEDIA";
+    if (permission == Permission.videos) return "VIDEOS";
+    if (permission == Permission.audio) return "MUSIC & AUDIO";
+    if (permission == Permission.storage) return "STORAGE";
+    if (permission == Permission.sms) return "SMS";
+    return permission.toString().split('.').last.toUpperCase();
+  }
+
+  IconData _getPermissionIcon(Permission permission) {
+    if (permission == Permission.notification) return Icons.notifications_active;
+    if (permission == Permission.locationWhenInUse) return Icons.location_on;
+    if (permission == Permission.contacts) return Icons.contacts;
+    if (permission == Permission.phone) return Icons.phone;
+    if (permission == Permission.camera) return Icons.camera_alt;
+    if (permission == Permission.photos) return Icons.photo_library;
+    if (permission == Permission.videos) return Icons.videocam;
+    if (permission == Permission.audio) return Icons.music_note;
+    if (permission == Permission.storage) return Icons.folder;
+    if (permission == Permission.sms) return Icons.sms;
+    return Icons.security;
+  }
+
+  bool _isPermanentlyDenied = false;
+  IconData _failedIcon = Icons.warning_amber_rounded;
+
+  void _setDenied(String message, String permissionName, IconData icon,
+      {bool isPermanentlyDenied = false}) {
     if (mounted) {
       setState(() {
         _isChecking = false;
         _errorMessage = message;
         _failedPermission = permissionName;
+        _failedIcon = icon;
+        _isPermanentlyDenied = isPermanentlyDenied;
       });
     }
   }
 
   Future<void> _proceedToNextScreen() async {
     if (!mounted) return;
-
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     await userProvider.loadSavedUser();
@@ -112,19 +204,30 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 30),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset('assets/images/company.jpeg', width: 200),
-              const SizedBox(height: 60),
-              if (_isChecking)
-                const CircularProgressIndicator(color: Colors.blue)
-              else
-                _buildRequirementUI(),
-            ],
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset('assets/images/company.jpeg', width: 200),
+                const SizedBox(height: 60),
+                if (_isChecking)
+                  const Column(
+                    children: [
+                      CircularProgressIndicator(color: Colors.blue),
+                      SizedBox(height: 20),
+                      Text(
+                        "Checking permissions...",
+                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                      ),
+                    ],
+                  )
+                else
+                  _buildRequirementUI(),
+              ],
+            ),
           ),
         ),
       ),
@@ -134,32 +237,92 @@ class _SplashScreenState extends State<SplashScreen> with WidgetsBindingObserver
   Widget _buildRequirementUI() {
     return Column(
       children: [
-        const Icon(Icons.warning_amber_rounded, size: 48, color: Colors.orange),
+        // Permission icon
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(_failedIcon, size: 48, color: Colors.orange.shade700),
+        ),
         const SizedBox(height: 20),
+
+        // Permission name
         Text(
           _failedPermission,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
         ),
         const SizedBox(height: 10),
+
+        // Error message
         Text(
           _errorMessage,
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 14, color: Colors.black54),
         ),
-        const SizedBox(height: 40),
-        ElevatedButton(
+        const SizedBox(height: 12),
+
+        // Required permissions info box
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.blue.shade100),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "All permissions are mandatory for the app to function properly.",
+                  style: TextStyle(fontSize: 12, color: Colors.blue),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 30),
+
+        // Open Settings button
+        ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+            backgroundColor: Colors.blue,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: () => openAppSettings(),
-          child: const Text("OPEN APP SETTINGS", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          icon: const Icon(Icons.settings, color: Colors.white),
+          label: const Text(
+            "OPEN APP SETTINGS",
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
-        const SizedBox(height: 20),
-        TextButton(
+        const SizedBox(height: 16),
+
+        // Retry button
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            side: const BorderSide(color: Colors.blue),
+          ),
           onPressed: () => _initializeApp(shouldRequest: true),
-          child: const Text("I've Enabled All - Check Again"),
+          icon: const Icon(Icons.refresh),
+          label: const Text("I've Enabled All — Check Again"),
         ),
       ],
     );

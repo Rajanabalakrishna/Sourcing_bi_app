@@ -6,8 +6,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
 
 
+    <!-- Camera Permission -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <!-- Foreground Service Permissions (Required for Android 14+) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -15,13 +21,23 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <!-- Battery and Background Persistence -->
-
-
-
     <!-- Data Sync Features -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- Media Permissions (Android 13+ / API 33+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+    <!-- Storage Permissions (Android 12 and below fallback) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Camera hardware feature (optional so app installs on all devices) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:label="BI_Supply_v4_04_02"
@@ -61,17 +77,14 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Firebase Messaging Configuration -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="location_tracking_channel_v9" />
 
-        <!-- Fixed: Using @mipmap/ic_launcher instead of missing ic_notification -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />
 
-        <!-- Analytics and Performance -->
         <meta-data
             android:name="firebase_analytics_collection_deactivated"
             android:value="false" />

@@ -1,21 +1,96 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mukadam_bi/verifications/transporter_verifcations/verificatrion_service.dart';
 import 'package:path/path.dart' as p;
 
+// ──────────────────────────── Validators (ALL OPTIONAL) ────────────────────────────
+class DocValidators {
+  /// PAN: ABCDE1234F  (5 letters + 4 digits + 1 letter)
+  /// OPTIONAL: returns null if empty
+  static String? pan(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim().toUpperCase();
+    if (v.length != 10) {
+      return 'PAN must be exactly 10 characters';
+    }
+    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(v)) {
+      return 'Invalid PAN format (e.g. ABCDE1234F)';
+    }
+    return null;
+  }
+
+  /// Aadhaar: exactly 12 digits, must not start with 0 or 1
+  /// OPTIONAL: returns null if empty
+  static String? aadhaar(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim().replaceAll(' ', '');
+    if (v.length != 12) {
+      return 'Aadhaar must be exactly 12 digits';
+    }
+    if (!RegExp(r'^[2-9][0-9]{11}$').hasMatch(v)) {
+      return 'Invalid Aadhaar (12 digits, cannot start with 0 or 1)';
+    }
+    return null;
+  }
+
+  /// Indian Vehicle Registration Number
+  ///  Standard: KA01AB1234 / KA 01 AB 1234
+  ///  BH series: 22BH1234AB
+  /// OPTIONAL: returns null if empty
+  static String? vehicleNumber(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim().toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
+    final standard = RegExp(r'^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$');
+    final bhSeries = RegExp(r'^[0-9]{2}BH[0-9]{4}[A-HJ-NP-Z]{1,2}$');
+    if (!standard.hasMatch(v) && !bhSeries.hasMatch(v)) {
+      return 'Invalid vehicle number (e.g. KA01AB1234)';
+    }
+    return null;
+  }
+
+  /// Indian Driving License
+  /// OPTIONAL: returns null if empty
+  static String? drivingLicense(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim().toUpperCase().replaceAll(RegExp(r'[\s-]'), '');
+    if (!RegExp(r'^[A-Z]{2}[0-9]{2}(19|20)[0-9]{2}[0-9]{7}$').hasMatch(v)) {
+      return 'Invalid DL format (e.g. KA0120201234567)';
+    }
+    return null;
+  }
+
+  /// Voter ID / EPIC: 3 uppercase letters + 7 digits = 10 chars
+  /// OPTIONAL: returns null if empty
+  static String? voterId(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
+    final v = value.trim().toUpperCase();
+    if (v.length != 10) {
+      return 'Voter ID must be exactly 10 characters';
+    }
+    if (!RegExp(r'^[A-Z]{3}[0-9]{7}$').hasMatch(v)) {
+      return 'Invalid Voter ID format (e.g. ABC1234567)';
+    }
+    return null;
+  }
+}
+
+// ──────────────────────────── Main Screen ────────────────────────────
 class TransporterUpdateScreen extends StatefulWidget {
   final int transporterId;
 
   const TransporterUpdateScreen({super.key, required this.transporterId});
 
   @override
-  State<TransporterUpdateScreen> createState() => _TransporterUpdateScreenState();
+  State<TransporterUpdateScreen> createState() =>
+      _TransporterUpdateScreenState();
 }
 
 class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
   final VerificationService _service = VerificationService();
   final ImagePicker _picker = ImagePicker();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _panController = TextEditingController();
   final TextEditingController _aadharController = TextEditingController();
@@ -26,6 +101,7 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
 
   Map<String, dynamic>? _data;
   bool _isLoading = true;
+  bool _isSubmitting = false;
 
   String? _localPanPath;
   String? _localAadharPath;
@@ -34,12 +110,36 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
   String? _localDlPath;
   String? _localVoterIdPath;
 
+  // ── Professional Color Palette (matching VillagePlansDashboard) ──
+  static const Color _primaryColor = Color(0xFF1E3A5F);
+  static const Color _accentColor = Color(0xFF3B82F6);
+  static const Color _successColor = Color(0xFF10B981);
+  static const Color _errorColor = Color(0xFFEF4444);
+  static const Color _backgroundColor = Color(0xFFF8FAFC);
+  static const Color _cardColor = Colors.white;
+  static const Color _textPrimary = Color(0xFF1F2937);
+  static const Color _textSecondary = Color(0xFF6B7280);
+  static const Color _borderColor = Color(0xFFE5E7EB);
+  static const Color _dividerColor = Color(0xFFF3F4F6);
+
   @override
   void initState() {
     super.initState();
     _loadDetails();
   }
 
+  @override
+  void dispose() {
+    _panController.dispose();
+    _aadharController.dispose();
+    _rcController.dispose();
+    _dlController.dispose();
+    _voterIdController.dispose();
+    _dummyController.dispose();
+    super.dispose();
+  }
+
+  // ─────────── Data Loading ───────────
   void _loadDetails() async {
     try {
       final data = await _service.fetchTransporterDetails(widget.transporterId);
@@ -50,7 +150,6 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
         _rcController.text = data['vehicle_number'] ?? '';
         _dlController.text = data['dl_number'] ?? '';
         _voterIdController.text = data['voter_id'] ?? '';
-
         _isLoading = false;
         _localPanPath = null;
         _localAadharPath = null;
@@ -60,39 +159,63 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
         _localVoterIdPath = null;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e")),
+      );
       setState(() => _isLoading = false);
     }
   }
 
-  void _showImageSourceActionSheet(String type) {
+  // ─────────── Helpers ───────────
+  bool get _isFaceVerified =>
+      (_data?['is_face_match_verified'] ?? false) &&
+          (_data?['is_face_liveness_verified'] ?? false);
+
+  // ─────────── Image Picker ───────────
+  void _showPickerOptions(String type) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: Colors.blueAccent),
-              title: const Text('Camera'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(type, ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.blueAccent),
-              title: const Text('Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(type, ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              const ListTile(
+                title: Text(
+                  'Select Image Source',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: _textPrimary,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading:
+                const Icon(Icons.photo_library, color: _primaryColor),
+                title: const Text('Gallery',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: _textPrimary)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(type, ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: _primaryColor),
+                title: const Text('Camera',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: _textPrimary)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(type, ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -107,18 +230,25 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
       if (image == null) return;
 
       setState(() {
-        if (type == "PAN") {
-          _localPanPath = image.path;
-        } else if (type == "AADHAR") {
-          _localAadharPath = image.path;
-        } else if (type == "PROFILE") {
-          _localProfilePath = image.path;
-        } else if (type == "RC") {
-          _localRcPath = image.path;
-        } else if (type == "DL") {
-          _localDlPath = image.path;
-        } else if (type == "VOTER") {
-          _localVoterIdPath = image.path;
+        switch (type) {
+          case "PROFILE":
+            _localProfilePath = image.path;
+            break;
+          case "PAN":
+            _localPanPath = image.path;
+            break;
+          case "AADHAR":
+            _localAadharPath = image.path;
+            break;
+          case "RC":
+            _localRcPath = image.path;
+            break;
+          case "DL":
+            _localDlPath = image.path;
+            break;
+          case "VOTER":
+            _localVoterIdPath = image.path;
+            break;
         }
       });
     } catch (e) {
@@ -126,101 +256,153 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
     }
   }
 
+  // ─────────── Submit ───────────
   void _handleUpdate() async {
-    setState(() => _isLoading = true);
+    // Validate form first (only format checks — all optional)
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please fix the errors before submitting"),
+          backgroundColor: _errorColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
 
     try {
-      String? panS3Key;
-      String? aadharS3Key;
-      String? profileS3Key;
-      String? rcS3Key;
-      String? dlS3Key;
-      String? voterS3Key;
+      String? panS3Key,
+          aadharS3Key,
+          profileS3Key,
+          rcS3Key,
+          dlS3Key,
+          voterS3Key;
 
       final String contactNumber = _data?['contact_number'] ?? 'unknown';
-      final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      final String timestamp =
+      DateTime.now().millisecondsSinceEpoch.toString();
 
-      bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
-
-      if (!isFaceVerified && _localProfilePath != null) {
-        final String extension = p.extension(_localProfilePath!).replaceAll('.', '');
-        final String s3Path = "transporter/profilephoto/$contactNumber/profile_$timestamp.$extension";
-        profileS3Key = await _service.uploadFileToS3(filePath: _localProfilePath!, s3ObjectName: s3Path);
+      // ── Upload images ──
+      if (!_isFaceVerified && _localProfilePath != null) {
+        final ext = p.extension(_localProfilePath!).replaceAll('.', '');
+        profileS3Key = await _service.uploadFileToS3(
+          filePath: _localProfilePath!,
+          s3ObjectName:
+          "transporter/profilephoto/$contactNumber/profile_$timestamp.$ext",
+        );
       }
 
       if (!(_data?['is_pan_verified'] ?? false) && _localPanPath != null) {
-        final String extension = p.extension(_localPanPath!).replaceAll('.', '');
-        final String s3Path = "transporter/pancard/$contactNumber/pan_$timestamp.$extension";
-        panS3Key = await _service.uploadFileToS3(filePath: _localPanPath!, s3ObjectName: s3Path);
+        final ext = p.extension(_localPanPath!).replaceAll('.', '');
+        panS3Key = await _service.uploadFileToS3(
+          filePath: _localPanPath!,
+          s3ObjectName:
+          "transporter/pancard/$contactNumber/pan_$timestamp.$ext",
+        );
       }
 
-      if (!(_data?['is_aadhaar_verified'] ?? false) && _localAadharPath != null) {
-        final String extension = p.extension(_localAadharPath!).replaceAll('.', '');
-        final String s3Path = "transporter/aadharcard/$contactNumber/aadhar_$timestamp.$extension";
-        aadharS3Key = await _service.uploadFileToS3(filePath: _localAadharPath!, s3ObjectName: s3Path);
+      if (!(_data?['is_aadhaar_verified'] ?? false) &&
+          _localAadharPath != null) {
+        final ext = p.extension(_localAadharPath!).replaceAll('.', '');
+        aadharS3Key = await _service.uploadFileToS3(
+          filePath: _localAadharPath!,
+          s3ObjectName:
+          "transporter/aadharcard/$contactNumber/aadhar_$timestamp.$ext",
+        );
       }
 
       if (!(_data?['is_rc_verified'] ?? false) && _localRcPath != null) {
-        final String extension = p.extension(_localRcPath!).replaceAll('.', '');
-        final String s3Path = "transporter/rcbook/$contactNumber/rc_$timestamp.$extension";
-        rcS3Key = await _service.uploadFileToS3(filePath: _localRcPath!, s3ObjectName: s3Path);
+        final ext = p.extension(_localRcPath!).replaceAll('.', '');
+        rcS3Key = await _service.uploadFileToS3(
+          filePath: _localRcPath!,
+          s3ObjectName:
+          "transporter/rcbook/$contactNumber/rc_$timestamp.$ext",
+        );
       }
 
       if (!(_data?['is_dl_verified'] ?? false) && _localDlPath != null) {
-        final String extension = p.extension(_localDlPath!).replaceAll('.', '');
-        final String s3Path = "transporter/drivinglicense/$contactNumber/dl_$timestamp.$extension";
-        dlS3Key = await _service.uploadFileToS3(filePath: _localDlPath!, s3ObjectName: s3Path);
+        final ext = p.extension(_localDlPath!).replaceAll('.', '');
+        dlS3Key = await _service.uploadFileToS3(
+          filePath: _localDlPath!,
+          s3ObjectName:
+          "transporter/drivinglicense/$contactNumber/dl_$timestamp.$ext",
+        );
       }
 
-      if (!(_data?['voter_id_verified'] ?? false) && _localVoterIdPath != null) {
-        final String extension = p.extension(_localVoterIdPath!).replaceAll('.', '');
-        final String s3Path = "transporter/voterid/$contactNumber/voter_$timestamp.$extension";
-        voterS3Key = await _service.uploadFileToS3(filePath: _localVoterIdPath!, s3ObjectName: s3Path);
+      if (!(_data?['voter_id_verified'] ?? false) &&
+          _localVoterIdPath != null) {
+        final ext = p.extension(_localVoterIdPath!).replaceAll('.', '');
+        voterS3Key = await _service.uploadFileToS3(
+          filePath: _localVoterIdPath!,
+          s3ObjectName:
+          "transporter/voterid/$contactNumber/voter_$timestamp.$ext",
+        );
       }
 
+      // ── Build payload ──
       final Map<String, dynamic> updateData = {};
 
-      if (!isFaceVerified && profileS3Key != null) updateData["profile_photo"] = profileS3Key;
-
+      if (!_isFaceVerified && profileS3Key != null) {
+        updateData["profile_photo"] = profileS3Key;
+      }
       if (!(_data?['is_rc_verified'] ?? false)) {
-        updateData["vehicle_number"] = _rcController.text;
+        updateData["vehicle_number"] =
+            _rcController.text.trim().toUpperCase();
         if (rcS3Key != null) updateData["rc_book"] = rcS3Key;
       }
-
       if (!(_data?['is_dl_verified'] ?? false)) {
-        updateData["dl_number"] = _dlController.text;
+        updateData["dl_number"] = _dlController.text.trim().toUpperCase();
         if (dlS3Key != null) updateData["driving_license"] = dlS3Key;
       }
-
       if (!(_data?['is_pan_verified'] ?? false)) {
-        updateData["pan_number"] = _panController.text;
+        updateData["pan_number"] =
+            _panController.text.trim().toUpperCase();
         if (panS3Key != null) updateData["pan_card"] = panS3Key;
       }
-
       if (!(_data?['is_aadhaar_verified'] ?? false)) {
-        updateData["aadhar_number"] = _aadharController.text;
+        updateData["aadhar_number"] = _aadharController.text.trim();
         if (aadharS3Key != null) updateData["aadhar_card"] = aadharS3Key;
       }
-
       if (!(_data?['voter_id_verified'] ?? false)) {
-        updateData["voter_id"] = _voterIdController.text;
+        updateData["voter_id"] =
+            _voterIdController.text.trim().toUpperCase();
         if (voterS3Key != null) updateData["voter_id_card"] = voterS3Key;
       }
 
-      bool success = await _service.updateTransporter(widget.transporterId, updateData);
+      if (updateData.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No changes to update')),
+        );
+        setState(() => _isSubmitting = false);
+        return;
+      }
+
+      bool success = await _service.updateTransporter(
+          widget.transporterId, updateData);
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Updated Successfully")));
-        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Updated Successfully"),
+            backgroundColor: _successColor,
+          ),
+        );
+        if (mounted) Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update details")));
-        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Failed to update details")),
+        );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
-      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Error: $e")));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
+
+  // ───────────────────────── UI Builders ─────────────────────────
 
   Widget _buildVerificationSection({
     required String label,
@@ -229,20 +411,27 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
     required String? networkImageUrl,
     required String? localPath,
     required String type,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputType keyboardType = TextInputType.text,
+    int? maxLength,
+    String? helperText,
     bool showTextField = true,
-    String? hintText,
+    bool showImagePicker = true,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 24),
+      margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _borderColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
             blurRadius: 12,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -254,20 +443,37 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Color(0xFF2D3436)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: _textPrimary,
+                  letterSpacing: -0.3,
+                ),
               ),
               if (isVerified)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    color: _successColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                    Border.all(color: _successColor.withOpacity(0.3)),
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.verified, color: Colors.green, size: 14),
+                      Icon(Icons.verified_rounded,
+                          color: _successColor, size: 14),
                       SizedBox(width: 4),
-                      Text("Verified", style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
+                      Text(
+                        "Verified",
+                        style: TextStyle(
+                          color: _successColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -275,56 +481,135 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
           ),
           const SizedBox(height: 16),
           if (showTextField) ...[
-            TextField(
+            TextFormField(
               controller: controller,
               enabled: !isVerified,
-              style: TextStyle(color: isVerified ? Colors.grey : Colors.black87),
+              validator: isVerified ? null : validator,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              textCapitalization: textCapitalization,
+              keyboardType: keyboardType,
+              maxLength: maxLength,
+              inputFormatters: inputFormatters,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+                color: _textPrimary,
+              ),
               decoration: InputDecoration(
                 labelText: "$label Number",
-                hintText: hintText ?? "Enter $label Number",
-                prefixIcon: Icon(Icons.badge_outlined, color: isVerified ? Colors.grey : Colors.blueAccent),
+                labelStyle: const TextStyle(
+                  color: _textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                hintText: "Enter $label Number",
+                hintStyle: TextStyle(
+                  color: _textSecondary.withOpacity(0.6),
+                  fontWeight: FontWeight.w500,
+                ),
+                helperText: helperText,
+                helperStyle: const TextStyle(
+                  color: _textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+                errorStyle: const TextStyle(
+                  color: _errorColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                counterText: '',
+                prefixIcon: const Icon(Icons.badge_outlined,
+                    color: _primaryColor),
                 filled: true,
-                fillColor: isVerified ? const Color(0xFFE9ECEF) : const Color(0xFFF8F9FA),
+                fillColor: isVerified ? _dividerColor : _backgroundColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: _borderColor, width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: _primaryColor, width: 1.5),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: _errorColor, width: 1.5),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: _errorColor, width: 1.5),
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                  const BorderSide(color: _borderColor, width: 1),
                 ),
               ),
             ),
             const SizedBox(height: 16),
           ],
-          GestureDetector(
-            onTap: isVerified ? null : () => _showImageSourceActionSheet(type),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Stack(
-                children: [
-                  if (localPath != null)
-                    Image.file(File(localPath), height: 180, width: double.infinity, fit: BoxFit.cover)
-                  else if (networkImageUrl != null && networkImageUrl.isNotEmpty)
-                    Image.network(
-                      networkImageUrl,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                    )
-                  else
-                    _buildPlaceholder(),
-                  if (!isVerified)
-                    Positioned(
-                      bottom: 8,
-                      right: 8,
-                      child: CircleAvatar(
-                        backgroundColor: Colors.blueAccent,
-                        radius: 18,
-                        child: Icon(localPath != null || (networkImageUrl?.isNotEmpty ?? false) ? Icons.edit : Icons.add_a_photo, color: Colors.white, size: 18),
+          if (showImagePicker)
+            GestureDetector(
+              onTap: isVerified ? null : () => _showPickerOptions(type),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Stack(
+                  children: [
+                    if (localPath != null)
+                      Image.file(File(localPath),
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover)
+                    else if (networkImageUrl != null &&
+                        networkImageUrl.isNotEmpty)
+                      Image.network(
+                        networkImageUrl,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                      )
+                    else
+                      _buildPlaceholder(),
+                    if (!isVerified)
+                      Positioned(
+                        bottom: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: _primaryColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: _primaryColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            localPath != null ||
+                                (networkImageUrl?.isNotEmpty ?? false)
+                                ? Icons.edit_rounded
+                                : Icons.add_a_photo_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -335,111 +620,255 @@ class _TransporterUpdateScreenState extends State<TransporterUpdateScreen> {
       height: 120,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F5),
+        color: _backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blueAccent.withOpacity(0.2), width: 1.5),
+        border: Border.all(color: _borderColor, width: 1.5),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.cloud_upload_outlined, size: 32, color: Colors.blueAccent.shade200),
+          Icon(Icons.cloud_upload_outlined,
+              size: 32, color: _accentColor.withOpacity(0.7)),
           const SizedBox(height: 8),
-          const Text("Upload Document", style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.w600)),
+          const Text(
+            "Upload Document",
+            style: TextStyle(
+              color: _accentColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
   }
 
+  // ───────────────────────── Build ─────────────────────────
   @override
   Widget build(BuildContext context) {
+    // ── Loading State ──
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator(strokeWidth: 3)));
+      return const Scaffold(
+        backgroundColor: _backgroundColor,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: _primaryColor,
+            strokeWidth: 2.5,
+          ),
+        ),
+      );
     }
 
-    bool isFaceVerified = (_data?['is_face_match_verified'] ?? false) && (_data?['is_face_liveness_verified'] ?? false);
+    bool isPanVerified = _data?['is_pan_verified'] ?? false;
+    bool isAadharVerified = _data?['is_aadhaar_verified'] ?? false;
+    bool isRcVerified = _data?['is_rc_verified'] ?? false;
+    bool isDlVerified = _data?['is_dl_verified'] ?? false;
+    bool isVoterVerified = _data?['voter_id_verified'] ?? false;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        title: Text(
-          _data?['name'] ?? "Update Transporter",
-          style: const TextStyle(color: Color(0xFF1A1A1A), fontWeight: FontWeight.w800),
+        backgroundColor: _primaryColor,
+        centerTitle: false,
+        leading: IconButton(
+          icon:
+          const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        child: Column(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildVerificationSection(
-              label: "Profile Photo",
-              type: "PROFILE",
-              isVerified: isFaceVerified,
-              controller: _dummyController,
-              networkImageUrl: _data?['profile_photo_url'],
-              localPath: _localProfilePath,
-              showTextField: false,
-            ),
-            _buildVerificationSection(
-              label: "RC Book",
-              type: "RC",
-              isVerified: _data?['is_rc_verified'] ?? false,
-              controller: _rcController,
-              hintText: "Enter Vehicle Number",
-              networkImageUrl: _data?['rc_book_url'],
-              localPath: _localRcPath,
-            ),
-            _buildVerificationSection(
-              label: "Driving License",
-              type: "DL",
-              isVerified: _data?['is_dl_verified'] ?? false,
-              controller: _dlController,
-              networkImageUrl: _data?['driving_license_url'],
-              localPath: _localDlPath,
-            ),
-            _buildVerificationSection(
-              label: "PAN Card",
-              type: "PAN",
-              isVerified: _data?['is_pan_verified'] ?? false,
-              controller: _panController,
-              networkImageUrl: _data?['pan_card_url'],
-              localPath: _localPanPath,
-            ),
-            _buildVerificationSection(
-              label: "Aadhar Card",
-              type: "AADHAR",
-              isVerified: _data?['is_aadhaar_verified'] ?? false,
-              controller: _aadharController,
-              networkImageUrl: _data?['aadhar_card_url'],
-              localPath: _localAadharPath,
-            ),
-            _buildVerificationSection(
-              label: "Voter ID",
-              type: "VOTER",
-              isVerified: _data?['voter_id_verified'] ?? false,
-              controller: _voterIdController,
-              networkImageUrl: _data?['voter_id_card_url'],
-              localPath: _localVoterIdPath,
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: _handleUpdate,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
+            Text(
+              _data?['name'] ?? "Update Details",
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 19,
+                letterSpacing: -0.3,
               ),
-              child: const Text("Save & Update Details", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
-            const SizedBox(height: 30),
+            Text(
+              'Verification Details',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.9),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            children: [
+              // ── Profile Photo (no text field, no validation) ──
+              _buildVerificationSection(
+                label: "Profile Photo",
+                type: "PROFILE",
+                isVerified: _isFaceVerified,
+                controller: _dummyController,
+                networkImageUrl: _data?['profile_photo_url'],
+                localPath: _localProfilePath,
+                showTextField: false,
+              ),
+
+              // ── RC Book ──
+              _buildVerificationSection(
+                label: "RC Book",
+                type: "RC",
+                isVerified: isRcVerified,
+                controller: _rcController,
+                networkImageUrl: _data?['rc_book_url'],
+                localPath: _localRcPath,
+                validator: DocValidators.vehicleNumber,
+                maxLength: 13,
+                textCapitalization: TextCapitalization.characters,
+                keyboardType: TextInputType.text,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                      RegExp(r'[A-Za-z0-9\s-]')),
+                  UpperCaseTextFormatter(),
+                ],
+                helperText: 'Format: KA01AB1234',
+              ),
+
+              // ── Driving License ──
+              _buildVerificationSection(
+                label: "Driving License",
+                type: "DL",
+                isVerified: isDlVerified,
+                controller: _dlController,
+                networkImageUrl: _data?['driving_license_url'],
+                localPath: _localDlPath,
+                validator: DocValidators.drivingLicense,
+                maxLength: 20,
+                textCapitalization: TextCapitalization.characters,
+                keyboardType: TextInputType.text,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                      RegExp(r'[A-Za-z0-9\s-]')),
+                  UpperCaseTextFormatter(),
+                ],
+                helperText: 'Format: KA0120201234567',
+              ),
+
+              // ── PAN Card: 10 chars — ABCDE1234F ──
+              _buildVerificationSection(
+                label: "PAN Card",
+                type: "PAN",
+                isVerified: isPanVerified,
+                controller: _panController,
+                networkImageUrl: _data?['pan_card_url'],
+                localPath: _localPanPath,
+                validator: DocValidators.pan,
+                maxLength: 10,
+                textCapitalization: TextCapitalization.characters,
+                keyboardType: TextInputType.text,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9]')),
+                  UpperCaseTextFormatter(),
+                ],
+                helperText:
+                'Format: ABCDE1234F (5 letters + 4 digits + 1 letter)',
+              ),
+
+              // ── Aadhar Card: 12 digits ──
+              _buildVerificationSection(
+                label: "Aadhar Card",
+                type: "AADHAR",
+                isVerified: isAadharVerified,
+                controller: _aadharController,
+                networkImageUrl: _data?['aadhar_card_url'],
+                localPath: _localAadharPath,
+                validator: DocValidators.aadhaar,
+                maxLength: 12,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
+                helperText: '12-digit number (cannot start with 0 or 1)',
+              ),
+
+              // ── Voter ID: 10 chars — ABC1234567 ──
+              _buildVerificationSection(
+                label: "Voter ID",
+                type: "VOTER",
+                isVerified: isVoterVerified,
+                controller: _voterIdController,
+                networkImageUrl: _data?['voter_id_card_url'],
+                localPath: _localVoterIdPath,
+                validator: DocValidators.voterId,
+                maxLength: 10,
+                textCapitalization: TextCapitalization.characters,
+                keyboardType: TextInputType.text,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9]')),
+                  UpperCaseTextFormatter(),
+                ],
+                helperText: 'Format: ABC1234567 (3 letters + 7 digits)',
+              ),
+
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: _isSubmitting ? null : _handleUpdate,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : const Icon(Icons.save_rounded, size: 18),
+                label: Text(
+                  _isSubmitting
+                      ? "Updating..."
+                      : "Save & Update Details",
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+              const SizedBox(height: 30),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  CUSTOM TEXT FORMATTER — Auto uppercase
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue,
+      TextEditingValue newValue,
+      ) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
     );
   }
 }

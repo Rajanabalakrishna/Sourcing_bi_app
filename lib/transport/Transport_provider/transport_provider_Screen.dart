@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:dropdown_search/dropdown_search.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
@@ -7,21 +10,49 @@ import 'package:mukadam_bi/transport/Transport_provider/transport_model.dart';
 import '../../notes/data.dart';
 import 'Transport_Service.dart';
 
+// ── Helper: Uppercase Text Formatter for Voter ID / PAN ──
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    return TextEditingValue(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
+}
+
 class TransportProviderScreen extends StatefulWidget {
   const TransportProviderScreen({super.key});
 
   @override
-  State<TransportProviderScreen> createState() => _TransportProviderScreenState();
+  State<TransportProviderScreen> createState() =>
+      _TransportProviderScreenState();
 }
 
 class _TransportProviderScreenState extends State<TransportProviderScreen> {
   final _formKey = GlobalKey<FormState>();
   final TransportProviderService _service = TransportProviderService();
   final DataEntryService _dataEntryService = DataEntryService();
+  final ImagePicker _picker = ImagePicker();
+
+  // ── Professional Color Palette (matching QuickMukkadamRegistrationScreen) ──
+  static const Color _primaryColor = Color(0xFF1E3A5F);
+  static const Color _accentColor = Color(0xFF3B82F6);
+  static const Color _successColor = Color(0xFF10B981);
+  static const Color _warningColor = Color(0xFFF59E0B);
+  static const Color _errorColor = Color(0xFFEF4444);
+  static const Color _backgroundColor = Color(0xFFF8FAFC);
+  static const Color _cardColor = Colors.white;
+  static const Color _textPrimary = Color(0xFF1F2937);
+  static const Color _textSecondary = Color(0xFF6B7280);
+  static const Color _borderColor = Color(0xFFE5E7EB);
+  static const Color _dividerColor = Color(0xFFF3F4F6);
 
   // Controllers
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _contactNumberController = TextEditingController();
+  final TextEditingController _contactNumberController =
+  TextEditingController();
   final TextEditingController _maxDistanceController = TextEditingController();
   final TextEditingController _vehicleTypeController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
@@ -80,9 +111,84 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage(String type) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  // ─── Show bottom sheet with Camera & Gallery options ───
+  void _showImagePickerOptions(String type) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Text(
+                  'Choose an option',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.camera_alt, color: _primaryColor),
+                  ),
+                  title: const Text('Camera',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Take a photo'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickImage(type, ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.photo_library,
+                        color: _primaryColor),
+                  ),
+                  title: const Text('Gallery',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Choose from gallery'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _pickImage(type, ImageSource.gallery);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickImage(String type, ImageSource source) async {
+    final pickedFile = await _picker.pickImage(source: source);
     if (pickedFile != null) {
       setState(() {
         if (type == 'profile') _profilePhotoPath = pickedFile.path;
@@ -101,6 +207,19 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
       initialDate: _selectedDob ?? DateTime.now(),
       firstDate: DateTime(1950),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: _textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null && picked != _selectedDob) {
       setState(() {
@@ -126,8 +245,12 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
   Future<void> _loadDistricts(String stateCode) async {
     setState(() {
-      _districts = []; _talukas = []; _villages = [];
-      _selectedDistrict = null; _selectedTaluka = null; _selectedVillage = null;
+      _districts = [];
+      _talukas = [];
+      _villages = [];
+      _selectedDistrict = null;
+      _selectedTaluka = null;
+      _selectedVillage = null;
       _isLoadingLocations = true;
     });
     try {
@@ -144,12 +267,15 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
   Future<void> _loadTalukas(String stateCode, String districtCode) async {
     setState(() {
-      _talukas = []; _villages = [];
-      _selectedTaluka = null; _selectedVillage = null;
+      _talukas = [];
+      _villages = [];
+      _selectedTaluka = null;
+      _selectedVillage = null;
       _isLoadingLocations = true;
     });
     try {
-      final talukas = await _dataEntryService.getTalukas(stateCode, districtCode);
+      final talukas =
+      await _dataEntryService.getTalukas(stateCode, districtCode);
       setState(() {
         _talukas = talukas;
         _isLoadingLocations = false;
@@ -167,7 +293,8 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
       _isLoadingLocations = true;
     });
     try {
-      final villages = await _dataEntryService.getVillages(stateCode, talukaCode);
+      final villages =
+      await _dataEntryService.getVillages(stateCode, talukaCode);
       setState(() {
         _villages = villages;
         _isLoadingLocations = false;
@@ -180,14 +307,39 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: isError ? Colors.red : Colors.green),
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: isError ? _errorColor : _successColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
     );
   }
 
   Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
-      if (_selectedState == null || _selectedDistrict == null || _selectedTaluka == null || _selectedVillage == null) {
+      if (_selectedState == null ||
+          _selectedDistrict == null ||
+          _selectedTaluka == null ||
+          _selectedVillage == null) {
         _showSnackBar("Please select all location fields", isError: true);
+        return;
+      }
+
+      // Validate profile photo (mandatory)
+      if (_profilePhotoPath == null) {
+        _showSnackBar("Profile photo is mandatory", isError: true);
         return;
       }
 
@@ -239,201 +391,553 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New Provider', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        leading: IconButton(icon: const Icon(Icons.arrow_back_rounded), onPressed: () => Navigator.pop(context)),
-      ),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : _backgroundColor,
+      appBar: _buildAppBar(isDark),
       body: Stack(
         children: [
-          Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Form(
+              key: _formKey,
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSectionHeader('BASIC INFORMATION'),
-                  _buildTextField(
-                    controller: _nameController,
-                    label: 'PROVIDER NAME',
-                    hint: 'Enter full name',
-                    icon: Icons.badge_outlined,
-                    validator: (v) => (v == null || v.isEmpty) ? 'Name required' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _contactNumberController,
-                    label: 'CONTACT NUMBER',
-                    hint: 'e.g. 9999999999',
-                    icon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => (v == null || v.isEmpty) ? 'Contact required' : null,
-                  ),
-                  const SizedBox(height: 20),
-
-                  _buildSectionHeader('LOCATION DETAILS'),
-                  _buildSearchableLocationDropdown(
-                    label: 'STATE',
-                    value: _selectedState,
-                    items: _states,
-                    displayKey: 'state_name_english',
-                    onChanged: (val) {
-                      setState(() => _selectedState = val);
-                      if (val != null) _loadDistricts(val['state_code']);
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSearchableLocationDropdown(
-                    label: 'DISTRICT',
-                    value: _selectedDistrict,
-                    items: _districts,
-                    displayKey: 'districtnameenglish',
-                    onChanged: (val) {
-                      setState(() => _selectedDistrict = val);
-                      if (val != null) _loadTalukas(_selectedState!['state_code'], val['districtcode'].toString());
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSearchableLocationDropdown(
-                    label: 'TALUKA',
-                    value: _selectedTaluka,
-                    items: _talukas,
-                    displayKey: 'subdistrictnameenglish',
-                    onChanged: (val) {
-                      setState(() => _selectedTaluka = val);
-                      if (val != null) _loadVillages(_selectedState!['state_code'], val['subdistrictcode'].toString());
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _buildSearchableLocationDropdown(
-                    label: 'VILLAGE',
-                    value: _selectedVillage,
-                    items: _villages,
-                    displayKey: 'villagenameenglish',
-                    onChanged: (val) => setState(() => _selectedVillage = val),
-                  ),
-
-                  const SizedBox(height: 20),
-                  _buildSectionHeader('VEHICLE & DRIVER DETAILS'),
-                  _buildTextField(
-                    controller: _capacityController,
-                    label: 'CAPACITY',
-                    hint: 'Enter capacity',
-                    icon: Icons.fitness_center,
-                    keyboardType: TextInputType.number,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return 'Capacity required';
-                      if (int.tryParse(v) == null) return 'Enter a valid number';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _vehicleController,
-                    label: 'VEHICLE NUMBER',
-                    hint: 'e.g. MH 12 AB 1234',
-                    icon: Icons.directions_car_filled_outlined,
-                  ),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _dlNumberController,
-                    label: 'DL NUMBER',
-                    hint: 'Enter driving license number',
-                    icon: Icons.assignment_ind_outlined,
-                  ),
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () => _selectDate(context),
-                    child: AbsorbPointer(
-                      child: _buildTextField(
-                        controller: _dobController,
-                        label: 'DRIVER DOB',
-                        hint: 'yyyy-MM-dd',
-                        icon: Icons.calendar_today_outlined,
-                      ),
+                  // Basic Information Card
+                  _buildSectionCard(
+                    title: 'Basic Information',
+                    subtitle: 'मूलभूत माहिती',
+                    icon: Icons.person,
+                    isDark: isDark,
+                    child: Column(
+                      children: [
+                        _buildTextField(
+                          controller: _nameController,
+                          label: 'Provider Name',
+                          hint: 'Enter full name',
+                          icon: Icons.badge_outlined,
+                          validator: (v) => (v == null || v.isEmpty)
+                              ? 'Name is required'
+                              : null,
+                          required: true,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _contactNumberController,
+                          label: 'Contact Number',
+                          hint: '10 digit mobile number',
+                          icon: Icons.phone_android,
+                          keyboardType: TextInputType.phone,
+                          maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          validator: (v) => (v == null || v.length != 10)
+                              ? 'Enter valid 10 digit mobile'
+                              : null,
+                          required: true,
+                          isDark: isDark,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          controller: _maxDistanceController,
-                          label: 'MAX DIST (KM)',
-                          hint: '0',
-                          keyboardType: TextInputType.number,
-                          validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+
+                  // Location Details Card
+                  _buildSectionCard(
+                    title: 'Location Details',
+                    subtitle: 'स्थान माहिती',
+                    icon: Icons.location_on,
+                    isDark: isDark,
+                    child: Column(
+                      children: [
+                        _buildSearchableDropdown(
+                          value: _selectedState,
+                          items: _states,
+                          displayKey: 'state_name_english',
+                          label: 'State',
+                          hint: 'Select State',
+                          icon: Icons.public,
+                          onChanged: (val) {
+                            setState(() => _selectedState = val);
+                            if (val != null)
+                              _loadDistricts(val['state_code']);
+                          },
+                          required: true,
+                          isDark: isDark,
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildVehicleDropdown()),
-                    ],
+                        const SizedBox(height: 16),
+                        _buildSearchableDropdown(
+                          value: _selectedDistrict,
+                          items: _districts,
+                          displayKey: 'districtnameenglish',
+                          label: 'District',
+                          hint: 'Select District',
+                          icon: Icons.map,
+                          onChanged: (val) {
+                            setState(() => _selectedDistrict = val);
+                            if (val != null)
+                              _loadTalukas(_selectedState!['state_code'],
+                                  val['districtcode'].toString());
+                          },
+                          required: true,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSearchableDropdown(
+                          value: _selectedTaluka,
+                          items: _talukas,
+                          displayKey: 'subdistrictnameenglish',
+                          label: 'Taluka',
+                          hint: 'Select Taluka',
+                          icon: Icons.location_city,
+                          onChanged: (val) {
+                            setState(() => _selectedTaluka = val);
+                            if (val != null)
+                              _loadVillages(_selectedState!['state_code'],
+                                  val['subdistrictcode'].toString());
+                          },
+                          required: true,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildSearchableDropdown(
+                          value: _selectedVillage,
+                          items: _villages,
+                          displayKey: 'villagenameenglish',
+                          label: 'Village',
+                          hint: 'Select Village',
+                          icon: Icons.home,
+                          onChanged: (val) =>
+                              setState(() => _selectedVillage = val),
+                          required: true,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 20),
 
-                  const SizedBox(height: 20),
-                  _buildSectionHeader('DOCUMENT NUMBERS'),
-                  _buildTextField(controller: _aadharNumberController, label: 'AADHAR NUMBER', hint: '12-digit number', icon: Icons.fingerprint),
-                  const SizedBox(height: 20),
-                  _buildTextField(controller: _panNumberController, label: 'PAN NUMBER', hint: 'Enter PAN', icon: Icons.credit_card),
-                  const SizedBox(height: 20),
-                  _buildTextField(controller: _voterIdController, label: 'VOTER ID', hint: 'Enter Voter ID', icon: Icons.how_to_vote),
-
-                  const SizedBox(height: 20),
-                  _buildSectionHeader('UPLOAD DOCUMENTS'),
-                  _buildFilePicker('Profile Photo', _profilePhotoPath, () => _pickImage('profile')),
-                  _buildFilePicker('Aadhar Card', _aadharCardPath, () => _pickImage('aadhar')),
-                  _buildFilePicker('PAN Card', _panCardPath, () => _pickImage('pan')),
-                  _buildFilePicker('Voter ID Card', _voterIdPath, () => _pickImage('voter')),
-                  _buildFilePicker('Driving License', _dlPath, () => _pickImage('dl')),
-                  _buildFilePicker('RC Book', _rcPath, () => _pickImage('rc')),
-
-                  const SizedBox(height: 20),
-                  _buildStatusToggle(),
-                  const SizedBox(height: 20),
-                  _buildTextField(
-                    controller: _notesController,
-                    label: 'ADDITIONAL NOTES',
-                    hint: 'Enter any specific requirements...',
-                    maxLines: 3,
+                  // Vehicle & Driver Details Card
+                  _buildSectionCard(
+                    title: 'Vehicle & Driver Details',
+                    subtitle: 'वाहन आणि चालक तपशील',
+                    icon: Icons.directions_car,
+                    isDark: isDark,
+                    child: Column(
+                      children: [
+                        _buildTextField(
+                          controller: _capacityController,
+                          label: 'Capacity',
+                          hint: 'Enter capacity',
+                          icon: Icons.fitness_center_outlined,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          validator: (v) {
+                            if (v == null || v.isEmpty) return 'Required';
+                            if (int.tryParse(v) == null)
+                              return 'Invalid number';
+                            return null;
+                          },
+                          required: true,
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildVehicleDropdown(isDark),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _vehicleController,
+                          label: 'Vehicle Number',
+                          hint: 'e.g. MH12AB1234',
+                          icon: Icons.confirmation_number_outlined,
+                          maxLength: 15,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9 ]')),
+                            UpperCaseTextFormatter(),
+                          ],
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty && v.length < 6) {
+                              return 'Enter a valid vehicle number';
+                            }
+                            return null;
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _dlNumberController,
+                          label: 'DL Number',
+                          hint: 'e.g. MH0120190001234',
+                          icon: Icons.assignment_ind_outlined,
+                          maxLength: 16,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9]')),
+                            UpperCaseTextFormatter(),
+                          ],
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty && v.length < 10) {
+                              return 'Enter a valid DL number (10-16 chars)';
+                            }
+                            return null;
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 16),
+                        GestureDetector(
+                          onTap: () => _selectDate(context),
+                          child: AbsorbPointer(
+                            child: _buildTextField(
+                              controller: _dobController,
+                              label: 'Driver DOB',
+                              hint: 'Select date',
+                              icon: Icons.calendar_today_outlined,
+                              isDark: isDark,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _maxDistanceController,
+                          label: 'Max Distance (KM)',
+                          hint: 'Enter maximum distance',
+                          icon: Icons.social_distance_outlined,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          validator: (v) =>
+                          (v == null || v.isEmpty) ? 'Required' : null,
+                          required: true,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // Document Numbers Card
+                  _buildSectionCard(
+                    title: 'Document Numbers',
+                    subtitle: 'कागदपत्र क्रमांक',
+                    icon: Icons.badge,
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildSubsectionHeader('Aadhar Details', isDark),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          controller: _aadharNumberController,
+                          label: '',
+                          hint: 'Enter 12-digit Aadhar Number',
+                          icon: Icons.fingerprint_outlined,
+                          keyboardType: TextInputType.number,
+                          maxLength: 12,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty && v.length != 12) {
+                              return 'Aadhar must be 12 digits';
+                            }
+                            return null;
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildSubsectionHeader('PAN Details', isDark),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          controller: _panNumberController,
+                          label: '',
+                          hint: 'Enter PAN (e.g., ABCDE1234F)',
+                          icon: Icons.credit_card_outlined,
+                          maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9]')),
+                            UpperCaseTextFormatter(),
+                          ],
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty) {
+                              if (v.length != 10) {
+                                return 'PAN must be 10 characters';
+                              }
+                              final panRegex =
+                              RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$');
+                              if (!panRegex.hasMatch(v)) {
+                                return 'Invalid PAN format (e.g., ABCDE1234F)';
+                              }
+                            }
+                            return null;
+                          },
+                          isDark: isDark,
+                        ),
+                        const SizedBox(height: 24),
+                        _buildSubsectionHeader('Voter ID Details', isDark),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          controller: _voterIdController,
+                          label: '',
+                          hint: 'Enter Voter ID (e.g., ABC1234567)',
+                          icon: Icons.how_to_vote_outlined,
+                          maxLength: 10,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'[A-Za-z0-9]')),
+                            UpperCaseTextFormatter(),
+                          ],
+                          validator: (v) {
+                            if (v != null && v.isNotEmpty && v.length != 10) {
+                              return 'Voter ID must be 10 characters';
+                            }
+                            return null;
+                          },
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Upload Documents Card
+                  _buildSectionCard(
+                    title: 'Upload Documents',
+                    subtitle: 'कागदपत्रे अपलोड करा',
+                    icon: Icons.cloud_upload_outlined,
+                    isDark: isDark,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Profile Photo *',
+                            isDark: isDark, required: true),
+                        const SizedBox(height: 8),
+                        _buildDocumentUploadCard('Profile Photo', 'profile',
+                            _profilePhotoPath, isDark),
+                        const SizedBox(height: 16),
+                        _buildDocumentUploadCard(
+                            'Aadhar Card', 'aadhar', _aadharCardPath, isDark),
+                        const SizedBox(height: 16),
+                        _buildDocumentUploadCard(
+                            'PAN Card', 'pan', _panCardPath, isDark),
+                        const SizedBox(height: 16),
+                        _buildDocumentUploadCard('Voter ID Card', 'voter',
+                            _voterIdPath, isDark),
+                        const SizedBox(height: 16),
+                        _buildDocumentUploadCard(
+                            'Driving License', 'dl', _dlPath, isDark),
+                        const SizedBox(height: 16),
+                        _buildDocumentUploadCard(
+                            'RC Book', 'rc', _rcPath, isDark),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Status & Notes Card
+                  _buildSectionCard(
+                    title: 'Additional Info',
+                    subtitle: 'अतिरिक्त माहिती',
+                    icon: Icons.info_outline,
+                    isDark: isDark,
+                    child: Column(
+                      children: [
+                        _buildStatusToggle(isDark),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _notesController,
+                          label: 'Notes',
+                          hint: 'Enter any specific requirements...',
+                          icon: Icons.notes_outlined,
+                          maxLines: 3,
+                          isDark: isDark,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Submit Button
+                  _buildSubmitButton(isDark),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
           ),
+
+          // Loading Overlay
           if (_isLoadingLocations)
             Container(
-              color: Colors.black.withOpacity(0.3),
-              child: const Center(child: CircularProgressIndicator(color: Color(0xFF7C3AED), strokeWidth: 5)),
+              color: Colors.black.withOpacity(0.5),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(
+                        color: _primaryColor,
+                        strokeWidth: 4,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Please wait...',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : _textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          _buildBottomButton(),
         ],
       ),
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+  // ═══════════════════════════════════════════════════════
+  // ══════════════   WIDGET BUILDERS   ══════════════════
+  // ═══════════════════════════════════════════════════════
+
+  PreferredSizeWidget _buildAppBar(bool isDark) {
+    return AppBar(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Transport Registration',
+            style: GoogleFonts.inter(
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
+          ),
+          Text(
+            'वाहतूक प्रदाता नोंदणी',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      centerTitle: false,
+      backgroundColor: _primaryColor,
+      elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
       ),
     );
   }
 
-  Widget _buildFilePicker(String label, String? path, VoidCallback onTap) {
+  Widget _buildSectionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Widget child,
+    required bool isDark,
+  }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+        color: isDark ? const Color(0xFF1E293B) : _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+            color: isDark ? const Color(0xFF334155) : _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.03),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: ListTile(
-        title: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-        subtitle: Text(path != null ? p.basename(path) : 'No file selected', style: const TextStyle(fontSize: 11)),
-        trailing: Icon(path != null ? Icons.check_circle : Icons.upload_file, color: path != null ? Colors.green : const Color(0xFF7C3AED)),
-        onTap: onTap,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: _primaryColor, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : _textPrimary,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[400] : _textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text,
+      {bool required = false, required bool isDark}) {
+    return RichText(
+      text: TextSpan(
+        text: text,
+        style: GoogleFonts.inter(
+          color: isDark ? Colors.grey[300] : _textSecondary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(
+                  color: _errorColor, fontWeight: FontWeight.bold),
+            ),
+        ],
       ),
     );
   }
@@ -442,138 +946,491 @@ class _TransportProviderScreenState extends State<TransportProviderScreen> {
     required TextEditingController controller,
     required String label,
     required String hint,
-    IconData? icon,
-    int maxLines = 1,
+    required IconData icon,
+    required bool isDark,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    bool required = false,
+    int? maxLength,
+    int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
-      ),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        validator: validator,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          floatingLabelBehavior: FloatingLabelBehavior.always,
-          labelStyle: const TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1.2),
-          suffixIcon: icon != null ? Icon(icon, color: Colors.grey.withOpacity(0.5)) : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 2)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildLabel(label, required: required, isDark: isDark),
+          ),
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          validator: validator,
+          maxLength: maxLength,
+          maxLines: maxLines,
+          inputFormatters: inputFormatters,
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            color: isDark ? Colors.white : _textPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(
+                color: isDark
+                    ? Colors.grey[500]
+                    : _textSecondary.withOpacity(0.6)),
+            prefixIcon: Icon(icon, color: _primaryColor, size: 22),
+            counterText: "",
+            filled: true,
+            fillColor: isDark ? const Color(0xFF0F172A) : _dividerColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : _borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : _borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+              const BorderSide(color: _accentColor, width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+              const BorderSide(color: _errorColor, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+              const BorderSide(color: _errorColor, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 16),
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  Widget _buildSearchableLocationDropdown({
-    required String label,
+  Widget _buildSearchableDropdown({
     required Map<String, dynamic>? value,
     required List<Map<String, dynamic>> items,
     required String displayKey,
+    required String label,
+    required String hint,
+    required IconData icon,
     required void Function(Map<String, dynamic>?) onChanged,
+    required bool isDark,
+    bool required = false,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 20, offset: const Offset(0, 4))],
-      ),
-      child: DropdownSearch<Map<String, dynamic>>(
-        items: (filter, loadProps) => items,
-        selectedItem: value,
-        itemAsString: (item) => item[displayKey]?.toString() ?? '',
-        onChanged: onChanged,
-        compareFn: (item1, item2) => item1[displayKey] == item2[displayKey],
-        decoratorProps: DropDownDecoratorProps(
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: const TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            border: InputBorder.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (label.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildLabel(label, required: required, isDark: isDark),
           ),
+        DropdownSearch<Map<String, dynamic>>(
+          items: (filter, loadProps) => items,
+          selectedItem: value,
+          itemAsString: (item) => item[displayKey]?.toString() ?? '',
+          onChanged: onChanged,
+          compareFn: (item1, item2) =>
+          item1[displayKey] == item2[displayKey],
+          filterFn: (item, filter) => item[displayKey]
+              .toString()
+              .toLowerCase()
+              .contains(filter.toLowerCase()),
+          decoratorProps: DropDownDecoratorProps(
+            decoration: InputDecoration(
+              prefixIcon: Icon(icon, color: _primaryColor, size: 22),
+              hintText: hint,
+              hintStyle: TextStyle(
+                  color: isDark
+                      ? Colors.grey[500]
+                      : _textSecondary.withOpacity(0.6)),
+              filled: true,
+              fillColor:
+              isDark ? const Color(0xFF0F172A) : _dividerColor,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : _borderColor),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                    color: isDark
+                        ? const Color(0xFF334155)
+                        : _borderColor),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                const BorderSide(color: _accentColor, width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide:
+                const BorderSide(color: _errorColor, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 16),
+            ),
+          ),
+          popupProps: PopupProps.menu(
+            showSearchBox: true,
+            searchFieldProps: TextFieldProps(
+              decoration: InputDecoration(
+                hintText: "Search...",
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            menuProps: MenuProps(
+              backgroundColor:
+              isDark ? const Color(0xFF1E293B) : _cardColor,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          validator: (v) =>
+          (required && v == null) ? 'This field is required' : null,
         ),
-        popupProps: const PopupProps.menu(showSearchBox: true),
-        validator: (v) => v == null ? 'Required' : null,
-      ),
+      ],
     );
   }
 
-  Widget _buildVehicleDropdown() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DropdownButtonFormField<String>(
-        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-        decoration: const InputDecoration(
-          labelText: 'VEHICLE TYPE',
-          labelStyle: TextStyle(color: Color(0xFF7C3AED), fontSize: 12, fontWeight: FontWeight.w600),
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          border: InputBorder.none,
+  Widget _buildVehicleDropdown(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _buildLabel('Vehicle Type', required: true, isDark: isDark),
         ),
-        value: _vehicleTypeController.text.isEmpty ? null : _vehicleTypeController.text,
-        items: _vehicles.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-        onChanged: (val) => setState(() => _vehicleTypeController.text = val!),
-      ),
+        DropdownButtonFormField<String>(
+          validator: (v) =>
+          (v == null || v.isEmpty) ? 'Vehicle type is required' : null,
+          isExpanded: true,
+          decoration: InputDecoration(
+            hintText: 'Select type',
+            hintStyle: TextStyle(
+                color: isDark
+                    ? Colors.grey[500]
+                    : _textSecondary.withOpacity(0.6)),
+            prefixIcon: const Icon(Icons.local_shipping_outlined,
+                color: _primaryColor, size: 22),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF0F172A) : _dividerColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : _borderColor),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : _borderColor),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+              const BorderSide(color: _accentColor, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 16),
+          ),
+          value: _vehicleTypeController.text.isEmpty
+              ? null
+              : _vehicleTypeController.text,
+          items: _vehicles
+              .map((v) => DropdownMenuItem(
+            value: v,
+            child: Text(v,
+                style: GoogleFonts.inter(fontSize: 15)),
+          ))
+              .toList(),
+          onChanged: (val) =>
+              setState(() => _vehicleTypeController.text = val!),
+          dropdownColor:
+          isDark ? const Color(0xFF1E293B) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ],
     );
   }
 
-  Widget _buildStatusToggle() {
+  Widget _buildDocumentUploadCard(
+      String label, String documentType, String? path, bool isDark) {
+    final bool hasFile = path != null;
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: isDark ? const Color(0xFF0F172A) : _dividerColor,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasFile
+              ? _successColor
+              : (isDark ? const Color(0xFF334155) : _borderColor),
+          width: hasFile ? 2 : 1,
+        ),
       ),
       child: Row(
         children: [
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Active Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                Text('Provider is ready for orders', style: TextStyle(color: Colors.grey, fontSize: 12)),
-              ],
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _showImagePickerOptions(documentType),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: hasFile
+                              ? _successColor.withOpacity(0.1)
+                              : _primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          hasFile ? Icons.check_circle : Icons.upload_file,
+                          color: hasFile ? _successColor : _primaryColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              hasFile
+                                  ? '$label Uploaded'
+                                  : 'Upload $label',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: hasFile
+                                    ? _successColor
+                                    : (isDark
+                                    ? Colors.white
+                                    : _textPrimary),
+                              ),
+                            ),
+                            if (!hasFile)
+                              Text(
+                                'Tap to select',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? Colors.grey[500]
+                                      : _textSecondary,
+                                ),
+                              ),
+                            if (hasFile)
+                              Text(
+                                p.basename(path),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: _successColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          Switch.adaptive(
-            value: _isActive,
-            activeColor: const Color(0xFF7C3AED),
-            onChanged: (val) => setState(() => _isActive = val),
+          Container(
+            width: 1,
+            height: 50,
+            color: isDark ? const Color(0xFF334155) : _borderColor,
+          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _pickImage(documentType, ImageSource.camera),
+              borderRadius: const BorderRadius.horizontal(
+                  right: Radius.circular(12)),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                child: const Icon(
+                  Icons.camera_alt,
+                  color: _primaryColor,
+                  size: 24,
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBottomButton() {
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: _isLoadingLocations ? null : _submitForm,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF7C3AED),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Create Provider', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+  Widget _buildSubsectionHeader(String title, bool isDark) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 20,
+          decoration: BoxDecoration(
+            color: _primaryColor,
+            borderRadius: BorderRadius.circular(2),
           ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : _textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusToggle(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _isActive
+            ? _successColor.withOpacity(0.05)
+            : (isDark ? const Color(0xFF0F172A) : _dividerColor),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isActive
+              ? _successColor
+              : (isDark ? const Color(0xFF334155) : _borderColor),
+          width: _isActive ? 2 : 1,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _isActive
+                    ? _successColor.withOpacity(0.1)
+                    : Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _isActive
+                    ? Icons.check_circle_outline
+                    : Icons.pause_circle_outline,
+                color: _isActive ? _successColor : _textSecondary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Active Status',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : _textPrimary,
+                    ),
+                  ),
+                  Text(
+                    _isActive
+                        ? 'Provider is ready for orders'
+                        : 'Provider is inactive',
+                    style: TextStyle(
+                        color: isDark
+                            ? Colors.grey[400]
+                            : _textSecondary,
+                        fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Switch.adaptive(
+              value: _isActive,
+              activeColor: _successColor,
+              onChanged: (val) => setState(() => _isActive = val),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton(bool isDark) {
+    return Container(
+      width: double.infinity,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [_primaryColor, _accentColor],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: _primaryColor.withOpacity(0.3),
+            spreadRadius: 0,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _isLoadingLocations ? null : _submitForm,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14)),
+          disabledBackgroundColor: Colors.grey[400],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_circle_outline, size: 24),
+            const SizedBox(width: 12),
+            Text(
+              'Create Transport Provider',
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
       ),
     );

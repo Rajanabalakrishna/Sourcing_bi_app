@@ -2,59 +2,115 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:mukadam_bi/referral/registration_response.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../verifications/mukadam_dashboard/mukkadam_data_model.dart';
 
-class referralRegistrationService {
-  //static const String baseUrl = "https://furtive-chrissy-reparably.ngrok-free.dev/api/user-registrations/";
- static const String baseUrl = 'https://supply.bharatintelligence.ai/api/user-registrations/';
 
-  Future<RegistrationResponse> fetchRegistrations({
-    required String username, // Changed from int userId to String username
-    required String dateFrom,
-    required String dateTo,
-    String entityType = "mukkadams",
-  }) async {
-    // Constructing the URL with username and dates as per your Postman test
-    final url = Uri.parse("$baseUrl?username=$username&date_from=$dateFrom&date_to=$dateTo&entity_type=$entityType");
+class MukkadamServiceee {
+  // static const String baseUrl =
+  //     "https://furtive-chrissy-reparably.ngrok-free.dev/api/users";
+  static const String baseUrl =
+      "https://supply.bharatintelligence.ai/api/users";
 
-    print("API Request URL: $url"); // Check this in your VS Code console!
+  /// ✅ Fetches ALL mukkadams (all statuses) — used by DirectoryScreen
+  /// Includes verified ones so the screen can filter for is_aadhaar + is_pan verified
+  Future<List<MukkadamDataModell>> fetchMukkadams(int userId) async {
+    final url = Uri.parse(
+      '$baseUrl/$userId/pending-verifications/'
+          '?type=mukkadam&status=not_started,pending,verified',
+    );
 
-    try {
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        return RegistrationResponse.fromJson(json.decode(response.body));
-      } else {
-        throw Exception("Server error: ${response.statusCode}");
-      }
-    } catch (e) {
-      throw Exception("Connection error: $e");
-    }
-  }
-
-
-
-  // Inside your MukkadamService class
-  Future<List<MukkadamDataModel>> fetchPendingVerificationsss(int userId) async {
     final prefs = await SharedPreferences.getInstance();
     final String? sessionToken = prefs.getString('session_token');
 
-    final response = await http.get(
-      Uri.parse('https://supply.bharatintelligence.ai/api/users/$userId/pending-verifications/?type=mukkadam&status=not_started,pending'),  //'https://furtive-chrissy-reparably.ngrok-free.dev
-      headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-        'Authorization': 'Token $sessionToken',
-      },
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': 'Token $sessionToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> entities = data['entities'] ?? [];
+        return entities
+            .map((json) => MukkadamDataModell.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Failed to load mukkadams');
+      }
+    } catch (e) {
+      throw Exception('Error fetching mukkadams: $e');
+    }
+  }
+
+  /// Fetches ONLY pending/not_started mukkadams — used by PendingVerificationListScreen
+  Future<List<MukkadamDataModell>> fetchPendingVerifications(int userId) async {
+    final url = Uri.parse(
+      '$baseUrl/$userId/pending-verifications/'
+          '?type=mukkadam&status=not_started,pending',
     );
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      final List<dynamic> entities = data['entities'] ?? [];
-      return entities.map((json) => MukkadamDataModel.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load verifications');
+    final prefs = await SharedPreferences.getInstance();
+    final String? sessionToken = prefs.getString('session_token');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': 'Token $sessionToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> entities = data['entities'] ?? [];
+        return entities
+            .map((json) => MukkadamDataModell.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Failed to load verifications');
+      }
+    } catch (e) {
+      throw Exception('Error: $e');
+    }
+  }
+
+  /// Fetches ONLY fully verified mukkadams — used by DirectoryScreen
+  Future<List<MukkadamDataModell>> fetchVerifiedMukkadams(int userId) async {
+    final url = Uri.parse(
+      '$baseUrl/$userId/pending-verifications/'
+          '?type=mukkadam&status=verified',  // ← only verified status
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    final String? sessionToken = prefs.getString('session_token');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'Authorization': 'Token $sessionToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List<dynamic> entities = data['entities'] ?? [];
+        return entities
+            .map((json) => MukkadamDataModell.fromJson(json))
+            .toList();
+      } else {
+        throw Exception('Failed to load verified mukkadams');
+      }
+    } catch (e) {
+      throw Exception('Error fetching verified mukkadams: $e');
     }
   }
 

@@ -46,43 +46,54 @@ class EntityDetails {
   final String baseLocation;
   final String? vehicleType;
 
+  // ✅ NEW: Verification flags from entity-level API response
+  final bool isFullyVerified;
+  final bool isAadhaarVerified;
+  final bool isPanVerified;
+  final bool isRcVerified;
+  final bool isDlVerified;
+  final bool isVoterIdVerified;
+
   EntityDetails({
     required this.id,
     required this.name,
     required this.contactNumber,
     required this.baseLocation,
     this.vehicleType,
+    required this.isFullyVerified,
+    required this.isAadhaarVerified,
+    required this.isPanVerified,
+    required this.isRcVerified,
+    required this.isDlVerified,
+    required this.isVoterIdVerified,
   });
 
   factory EntityDetails.fromJson(Map<String, dynamic> json) {
     return EntityDetails(
       id: json['id'],
       name: json['name'],
-      contactNumber: json['contact_number'],
-      baseLocation: json['base_location'],
+      contactNumber: json['contact_number'] ?? '',
+      baseLocation: json['base_location'] ?? '',
       vehicleType: json['vehicle_type'],
+      isFullyVerified: json['is_fully_verified'] ?? false,
+      isAadhaarVerified: json['is_aadhaar_verified'] ?? false,
+      isPanVerified: json['is_pan_verified'] ?? false,
+      isRcVerified: json['is_rc_verified'] ?? false,
+      isDlVerified: json['is_dl_verified'] ?? false,
+      isVoterIdVerified: json['is_voter_id_verified'] ?? false,
     );
   }
 }
-
 
 class VerificationStatus {
   final String type;
   final String typeDisplay;
   final String status;
-  final bool isAadhaarVerified;
-  final bool isPanVerified;
-  final bool isRcVerified;
-  final bool isDlVerified;
 
   VerificationStatus({
     required this.type,
     required this.typeDisplay,
     required this.status,
-    required this.isAadhaarVerified,
-    required this.isPanVerified,
-    required this.isRcVerified,
-    required this.isDlVerified,
   });
 
   factory VerificationStatus.fromJson(Map<String, dynamic> json) {
@@ -90,11 +101,6 @@ class VerificationStatus {
       type: json['type'] ?? '',
       typeDisplay: json['type_display'] ?? '',
       status: json['status'] ?? '',
-      isAadhaarVerified: json['is_aadhaar_verified'] ?? false,
-      isPanVerified: json['is_pan_verified'] ?? false,
-      isRcVerified: json['is_rc_verified'] ?? false,
-      isDlVerified: json['is_dl_verified'] ?? false,
     );
   }
 }
-

@@ -1,3 +1,5 @@
+// lib/seeplan/plan_service_model.dart
+
 import 'dart:convert';
 
 class VillageVisitPlan {
@@ -8,6 +10,7 @@ class VillageVisitPlan {
   final List<DailyPlan> dailyPlans;
   final String status;
   final String statusDisplay;
+  final String purpose;
 
   VillageVisitPlan({
     required this.id,
@@ -17,11 +20,13 @@ class VillageVisitPlan {
     required this.dailyPlans,
     required this.status,
     required this.statusDisplay,
+    required this.purpose
   });
 
   factory VillageVisitPlan.fromJson(Map<String, dynamic> json) {
     return VillageVisitPlan(
       id: json['id']?.toString() ?? '',
+      purpose: json['"purpose"']?.toString()??'',
       planName: json['plan_name']?.toString() ?? '',
       startDate: json['start_date']?.toString() ?? '',
       endDate: json['end_date']?.toString() ?? '',
@@ -52,15 +57,17 @@ class DailyPlan {
   });
 
   factory DailyPlan.fromJson(Map<String, dynamic> json) {
+    String visitDateStr = json['visit_date']?.toString() ?? '';
+
     return DailyPlan(
       id: json['id']?.toString() ?? '',
       visitDate: json['visit_date']?.toString() ?? '',
       purpose: json['purpose']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       statusDisplay: json['status_display']?.toString() ?? '',
-      villageVisits: json['village_visits'] != null
-          ? (json['village_visits'] as List).map((i) => VillageVisit.fromJson(i)).toList()
-          : [],
+      villageVisits: json['village_visits'] != null? (json['village_visits'] as List).map((i) => VillageVisit.fromJson(i, visitDateStr)).toList():[]
+
+
     );
   }
 }
@@ -68,37 +75,77 @@ class DailyPlan {
 class VillageVisit {
   final String id;
   final String village;
+  final String villageCode;
   final String taluka;
+  final String talukaCode;
   final String district;
+  final String districtCode;
   final String state;
+  final String stateCode;
   final String status;
   final String statusDisplay;
   final int expectedRegistrations;
   final List<String> officialsToMeet;
   final String notes;
   final bool canExecute;
+  final double? villageLatitude;
+  final double? villageLongitude;
+  final String? startedAt;
+  final String? completedAt;
+  final VillageExecution? execution; // Added execution field
+  final DateTime plannedDate;
+
 
   VillageVisit({
     required this.id,
     required this.village,
+    this.villageCode = '',
     required this.taluka,
+    this.talukaCode = '',
     required this.district,
+    this.districtCode = '',
     required this.state,
+    this.stateCode = '',
     required this.status,
     required this.statusDisplay,
     required this.expectedRegistrations,
     required this.officialsToMeet,
     required this.notes,
     required this.canExecute,
+    this.villageLatitude,
+    this.villageLongitude,
+    this.startedAt,
+    this.completedAt,
+    this.execution,
+    required this.plannedDate
   });
 
-  factory VillageVisit.fromJson(Map<String, dynamic> json) {
+  factory VillageVisit.fromJson(Map<String, dynamic> json, [String? visitDate]) {
+
+    DateTime parsedPlannedDate;
+    try {
+      String dateStr = visitDate ?? json['visit_date']?.toString() ?? json['planned_date']?.toString() ?? '';
+      if (dateStr.isNotEmpty) {
+        parsedPlannedDate = DateTime.parse(dateStr);
+      } else {
+        // Default to current date if no date available
+        parsedPlannedDate = DateTime.now();
+      }
+    } catch (e) {
+      parsedPlannedDate = DateTime.now();
+    }
+
+
     return VillageVisit(
       id: json['id']?.toString() ?? '',
       village: json['village']?.toString() ?? '',
+      villageCode: json['village_code']?.toString() ?? '',
       taluka: json['taluka']?.toString() ?? '',
+      talukaCode: json['taluka_code']?.toString() ?? '',
       district: json['district']?.toString() ?? '',
+      districtCode: json['district_code']?.toString() ?? '',
       state: json['state']?.toString() ?? '',
+      stateCode: json['state_code']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
       statusDisplay: json['status_display']?.toString() ?? '',
       expectedRegistrations: json['expected_registrations'] ?? 0,
@@ -107,11 +154,22 @@ class VillageVisit {
           : [],
       notes: json['notes']?.toString() ?? '',
       canExecute: json['can_execute'] ?? true,
+      villageLatitude: json['village_latitude'] != null
+          ? double.tryParse(json['village_latitude'].toString())
+          : null,
+      villageLongitude: json['village_longitude'] != null
+          ? double.tryParse(json['village_longitude'].toString())
+          : null,
+      startedAt: json['started_at']?.toString(),
+      completedAt: json['completed_at']?.toString(),
+      execution: json['execution'] != null
+          ? VillageExecution.fromJson(json['execution'])
+          : null,
+      plannedDate: parsedPlannedDate
     );
   }
 }
 
-/// Model for Village Execution data
 class VillageExecution {
   final String id;
   final String startedAt;
@@ -165,7 +223,6 @@ class VillageExecution {
   }
 }
 
-/// Model for Meeting records
 class Meeting {
   final String id;
   final String personType;
@@ -222,7 +279,6 @@ class Meeting {
   }
 }
 
-/// Model for Proof Images
 class ProofImage {
   final String id;
   final String? imageType;
@@ -258,7 +314,6 @@ class ProofImage {
   }
 }
 
-/// Model for Meeting Summary
 class MeetingSummary {
   final int total;
   final int completed;
@@ -282,7 +337,6 @@ class MeetingSummary {
   }
 }
 
-/// Helper class to categorize officials
 class OfficialCategory {
   static const List<String> mandatory = [
     'shopowner_1_mandatory',

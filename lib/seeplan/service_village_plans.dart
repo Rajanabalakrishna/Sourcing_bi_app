@@ -6,9 +6,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http_parser/http_parser.dart';
 
-class PlanService {
-  //static const String baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api';
-  static const String baseUrl = 'https://supply.bharatintelligence.ai/api';
+class PlanMervice {
+  static const String baseUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api';
   static const String s3FileUploadUrl = 'https://demand.bharatintelligence.ai/chat/api/upload_image_to_s3/';
   static const String s3AuthToken = 'e8fa8310c9af344ca22ec6bd23960d609b09c704';
 

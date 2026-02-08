@@ -21,7 +21,7 @@ class _DialPadScreenState extends State<DialPadScreen> {
 
   void _onKeyPress(String value) {
     setState(() {
-      if (_displayNumber.length < 15) {
+      if (_displayNumber.length < 10) {
         _displayNumber += value;
       }
     });
@@ -47,33 +47,19 @@ class _DialPadScreenState extends State<DialPadScreen> {
       final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final visitPlans = await VisitApiService().fetchTodayVisits(todayDate);
 
-      // if (visitPlans.isEmpty || visitPlans.first.centralTeamPhone == null) {
-      //   throw Exception("Central team number not found for today.");
-      // }
-
-      //
-
-      // final String fromNumber = visitPlans.first.centralTeamPhone!;
-      // final String centralPhone = visitPlans.first.centralTeamPhone ?? "+91-804-736152";
       final String toNumber = _displayNumber;
 
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       final String userMobile = userProvider.user?.mobileNumber ?? "";
       final prefs = await SharedPreferences.getInstance();
 
-      final int? userId = prefs.getInt('bg_user_id'); // This is the ID you set in main.dart
-      // final String? centralPhone = prefs.getString("centralPhone"); // Getting central phone from prefs
-      //
-      // if (centralPhone == null || centralPhone.isEmpty) {
-      //   throw Exception("Central team number not found.");
-      // }
-
+      final int? userId = prefs.getInt('bg_user_id');
 
       // 2. Execute the call via your API Service
       final response = await CallApiService.makeCall(
           fromNumber: userMobile,
           toNumber: toNumber,
-          userId: userId // Passing user_id here
+          userId: userId
       );
 
       if (response['success'] == true) {
@@ -92,80 +78,41 @@ class _DialPadScreenState extends State<DialPadScreen> {
     }
   }
 
-//for now this one deploy one
-
-  // Future<void> _makeCustomCall() async {
-  //   if (_displayNumber.isEmpty) return;
-  //
-  //   setState(() => _isLoading = true);
-  //
-  //   try {
-  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  //
-  //     // 1. This call will save the phone number to SharedPreferences internally
-  //     await VisitApiService().fetchTodayVisits(todayDate);
-  //
-  //     // 2. Retrieve the saved phone number
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final String? centralPhone = prefs.getString("centralPhone");
-  //
-  //     if (centralPhone == null || centralPhone.isEmpty) {
-  //       throw Exception("Central team number not found.");
-  //     }
-  //
-  //     final String toNumber = _displayNumber;
-  //
-  //     // 3. Execute the call
-  //     final response = await CallApiService.makeCall(
-  //       fromNumber: centralPhone,
-  //       toNumber: toNumber,
-  //     );
-  //
-  //     if (response['success'] == true) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text("Call initiated to $toNumber"), backgroundColor: Colors.green),
-  //       );
-  //     } else {
-  //       throw Exception(response['message'] ?? "Failed to initiate call");
-  //     }
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text(e.toString().replaceAll("Exception: ", "")), backgroundColor: Colors.red),
-  //     );
-  //   } finally {
-  //     setState(() => _isLoading = false);
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("Dial Pad"),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
-      body: SafeArea( // Ensures content doesn't overlap with system bars
+
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 30.0), // Adds space at the very bottom
+          padding: const EdgeInsets.only(bottom: 30.0),
           child: Column(
             children: [
               const Spacer(),
-              // Display Area
+              // Display Area with +91 prefix
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  _displayNumber,
-                  style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, letterSpacing: 2),
-                  textAlign: TextAlign.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+
+                    Text(
+                      _displayNumber.isEmpty ? "" : _displayNumber,
+                      style: const TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 40),
               // Dial Pad Grid
               Expanded(
-                flex: 5, // Increased flex to give more room
+                flex: 5,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Column(

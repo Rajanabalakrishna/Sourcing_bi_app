@@ -9,10 +9,9 @@ import 'package:mukadam_bi/plans/allPlansScreen.dart';
 import 'package:mukadam_bi/referral/user_referral_mukadam_screen.dart';
 import 'package:mukadam_bi/seeplan/plan_list_screen.dart';
 import 'package:mukadam_bi/seeplan/villages_list_screen.dart';
+import 'package:mukadam_bi/sms/sms_service.dart';
 
-// Your existing imports
 import 'package:mukadam_bi/transport/Transport_provider/transport_provider_Screen.dart';
-//import 'package:mukadam_bi/transport/transport_provider_list/transport_provider_list_screen.dart';
 import 'package:mukadam_bi/verifications/mukadam_dashboard/mukadam_dashborad.dart';
 import 'package:mukadam_bi/verifications/transporter_verifcations/verification_transporter_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -32,16 +31,9 @@ import 'mukadan/quick_registration/quick_registration_Screen.dart';
 import 'mukadan/registration/mukadam_registration_Screen.dart';
 import 'notes/end_Screen.dart';
 import 'notes/todo_screen.dart';
-import 'notes/visitApiService.dart'; // Assuming this contains DataEntryScreen
+import 'notes/visitApiService.dart';
 
-
-
-
-import 'package:geolocator/geolocator.dart' as geo; // Use 'as geo' to avoid conflicts
-
-
-
-
+import 'package:geolocator/geolocator.dart' as geo;
 
 class MukadamDashboard extends StatefulWidget {
   const MukadamDashboard({super.key});
@@ -52,203 +44,54 @@ class MukadamDashboard extends StatefulWidget {
 
 class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBindingObserver {
   int _selectedIndex = 0;
-
-  // List of widgets to display for each tab
   late final List<Widget> _pages;
+  bool _isCalling = false;
 
-  //bool _isLocationEnabled = true;
+  // Professional Color Palette
+  static const Color _primaryColor = Color(0xFF1E3A5F);
+  static const Color _accentColor = Color(0xFF3B82F6);
+  static const Color _successColor = Color(0xFF10B981);
+  static const Color _warningColor = Color(0xFFF59E0B);
+  static const Color _errorColor = Color(0xFFEF4444);
+  static const Color _purpleColor = Color(0xFF8B5CF6);
+  static const Color _backgroundColor = Color(0xFFF8FAFC);
+  static const Color _cardColor = Colors.white;
+  static const Color _textPrimary = Color(0xFF1F2937);
+  static const Color _textSecondary = Color(0xFF6B7280);
 
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addObserver(this);
     _pages = [
-      _buildDashboardContent(), // Modern Grid View
-     const DataEntryScreen(),
+      _buildDashboardContent(),
+      const DialPadScreen(),
     ];
-    //_checkAndFetchCallLogs();
     _setupFCM();
     _syncAllData();
-    //_checkAndSyncOldLocationData();
-    _initializeAnalytics();// Your existing Data Entry Screen
-
-
+    _initializeAnalytics();
   }
 
-
-
-
-
-
-
   Future<void> _initializeAnalytics() async {
-    // Set user ID for analytics
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     if (userProvider.user != null) {
       await FirebaseAnalytics.instance.setUserId(
         id: userProvider.user!.id.toString(),
       );
-
-      // Set user properties
       await FirebaseAnalytics.instance.setUserProperty(
         name: 'user_role',
         value: userProvider.user!.role ?? 'unknown',
       );
-
       await FirebaseAnalytics.instance.setUserProperty(
         name: 'user_mobile',
         value: userProvider.user!.mobileNumber ?? 'unknown',
       );
     }
-
-    // Log dashboard screen view
     await FirebaseAnalytics.instance.logScreenView(
       screenName: 'MukadamDashboard',
       screenClass: 'MukadamDashboard',
     );
   }
-
-
-
-
-
-  // //test data
-  // Future<void> _checkAndSyncOldLocationData() async {
-  //   try {
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final userProvider = Provider.of<UserProvider>(context, listen: false);
-  //
-  //     // 1. Get current date
-  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  //
-  //     // --- TEST DATA START ---
-  //     // Commenting out real DB fetch
-  //     // final dbHelper = DatabaseHelper.instance;
-  //     // List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
-  //
-  //     // Fake Data for testing
-  //     String oldestRecordDate = "2024-01-01"; // Fake old date to trigger sync
-  //     List<Map<String, dynamic>> localData = [
-  //       {
-  //         'latitude': 12.9716,
-  //         'longitude': 77.5946,
-  //         'date': "2024-01-01",
-  //         'time': "10:30:00" // Changed from "10:30 AM"
-  //       },
-  //       {
-  //         'latitude': 12.9717,
-  //         'longitude': 77.5947,
-  //         'date': "2024-01-01",
-  //         'time': "10:35:00" // Changed from "10:35 AM"
-  //       }
-  //     ];
-  //
-  //     // --- TEST DATA END ---
-  //
-  //     if (localData.isNotEmpty) {
-  //       // 3. If the date is NOT today, it's old data from a previous day
-  //       if (oldestRecordDate != todayDate) {
-  //         print("⏳ [TEST SYNC] Triggering sync with FAKE data from $oldestRecordDate...");
-  //
-  //         final Map<String, dynamic> payload = {
-  //           "user_id": userProvider.user?.id ?? 0,
-  //           "today_date": todayDate,
-  //           "locations": localData.map((loc) => {
-  //             "latitude": loc['latitude'],
-  //             "longitude": loc['longitude'],
-  //             "date": loc['date'],
-  //             "time": loc['time']
-  //           }).toList(),
-  //         };
-  //
-  //         // 4. Hit the API
-  //         await LocationApiService.postLocation(payload);
-  //
-  //         // 5. SUCCESS: (Commented out clearLocations to avoid losing real data while testing)
-  //         // await dbHelper.clearLocations();
-  //         await prefs.setString("last_successful_sync_date", todayDate);
-  //
-  //         print("🚀 [TEST SYNC] Fake data hit API successfully.");
-  //       } else {
-  //         print("ℹ️ [TEST SYNC] Date matches today, no sync triggered.");
-  //       }
-  //     }
-  //   } catch (e) {
-  //     print("❌ [TEST SYNC] Failed to hit API: $e");
-  //   }
-  // }
-
-
-
-
-  //real data
-
-  // Future<void> _checkAndSyncOldLocationData() async {
-  //   try {
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final userProvider = Provider.of<UserProvider>(context, listen: false);
-  //
-  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  //
-  //     // 1. Fetch REAL data from local database
-  //     final dbHelper = DatabaseHelper.instance;
-  //     List<Map<String, dynamic>> localData = await dbHelper.getAllLocations();
-  //
-  //     if (localData.isNotEmpty) {
-  //       // Get the date of the oldest record to check if it's from a previous day
-  //       String oldestRecordDate = localData.first['date'];
-  //
-  //       if (oldestRecordDate != todayDate) {
-  //         print("⏳ [SYNC] Triggering sync with real data from $oldestRecordDate...");
-  //
-  //         final Map<String, dynamic> payload = {
-  //           "user_id": userProvider.user?.id ?? 0,
-  //           "today_date": todayDate,
-  //           "locations": localData.map((loc) {
-  //             // 2. Convert "10:30 AM" to "10:30:00" for Django backend
-  //             String rawTime = loc['time'];
-  //             String formattedTime = rawTime;
-  //
-  //             try {
-  //               // Parses "10:30 AM" and formats to "10:30:00"
-  //               DateTime parsedTime = DateFormat.jm().parse(rawTime);
-  //               formattedTime = DateFormat("HH:mm:ss").format(parsedTime);
-  //             } catch (e) {
-  //               print("Time parsing error: $e");
-  //             }
-  //
-  //             return {
-  //               "latitude": loc['latitude'],
-  //               "longitude": loc['longitude'],
-  //               "date": loc['date'],
-  //               "time": formattedTime
-  //             };
-  //           }).toList(),
-  //         };
-  //
-  //         // 4. Hit the API
-  //         await LocationApiService.postLocation(payload);
-  //
-  //         // 5. SUCCESS: Clear local DB and update sync flag
-  //         await dbHelper.clearLocations();
-  //         await prefs.setString("last_successful_sync_date", todayDate);
-  //
-  //         print("🚀 [DASHBOARD SYNC] Old data synced and cleared successfully.");
-  //       } else {
-  //         print("ℹ️ [DASHBOARD SYNC] Data in DB is from today. Waiting for background schedule.");
-  //       }
-  //     }
-  //   } catch (e) {
-  //     print("❌ [DASHBOARD SYNC] Failed to sync old data: $e");
-  //   }
-  // }
-
-  bool _isCalling = false;
-
-
-  //this is deployment+testing side
-
 
   Future<void> _initiateCall() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -261,68 +104,39 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     });
 
     if (userMobile.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("User mobile number not found")),
-      );
+      _showSnackBar("User mobile number not found", isError: true);
       return;
     }
 
     setState(() => _isCalling = true);
 
     try {
-      // 1. Get today's date and fetch plans to get the central team number
       final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      final visitPlans = await VisitApiService().fetchTodayVisits(todayDate);
 
-      if (visitPlans.isEmpty) {
-        throw Exception("No plans found for today to fetch central team number.");
-      }
+      // This call internally saves centralPhone to SharedPreferences
+      await VisitApiService().fetchTodayVisits(todayDate);
 
       final prefs = await SharedPreferences.getInstance();
-      // Fallback to your default number if "centralPhone" is null or empty
-      final String centralPhone = prefs.getString("centralPhone") ?? "+91-804-7361521";
-
+      final String centralPhone = prefs.getString("centralPhone") ?? "";
       final int? userId = prefs.getInt('bg_user_id');
 
-      // 2. Get the central team phone from the first plan
-      // Assuming your VisitPlan model has a field 'centralTeamPhone' mapped to 'central_team_phone'
-     // final String centralPhone = visitPlans.first.centralTeamPhone ?? "+91-804-7361521";
-
-
-
       if (centralPhone.isEmpty) {
-        throw Exception("Central team phone number not available in today's plan.");
+        throw Exception("Central team phone number not available.");
       }
 
-
-
-      // 3. Initiate Call
-      // As requested: fromNumber = central team phone, toNumber = user provider number
       final response = await CallApiService.makeCall(
         fromNumber: centralPhone,
         toNumber: userMobile,
-        userId:userId
+        userId: userId,
       );
 
-
-
       if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? "Call initiated successfully"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackBar(response['message'] ?? "Call initiated successfully");
       } else {
         throw Exception(response['message'] ?? "Failed to initiate call");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.toString().replaceAll("Exception: ", "")),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showSnackBar(e.toString().replaceAll("Exception: ", ""), isError: true);
     } finally {
       if (mounted) {
         setState(() => _isCalling = false);
@@ -331,72 +145,20 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
   }
 
 
-
-  //after deploy
-
-  // Future<void> _initiateCall() async {
-  //   final userProvider = Provider.of<UserProvider>(context, listen: false);
-  //   final String userMobile = userProvider.user?.mobileNumber ?? "";
-  //
-  //   if (userMobile.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text("User mobile number not found")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   setState(() => _isCalling = true);
-  //
-  //   try {
-  //     final String todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  //
-  //     // 1. Fetch plans (this updates SharedPreferences)
-  //     await VisitApiService().fetchTodayVisits(todayDate);
-  //
-  //     // 2. Get the number from SharedPreferences
-  //     final prefs = await SharedPreferences.getInstance();
-  //     final String? centralPhone = prefs.getString("centralPhone");
-  //
-  //     if (centralPhone == null || centralPhone.isEmpty) {
-  //       throw Exception("Central team phone number not found.");
-  //     }
-  //
-  //     // 3. Initiate Call
-  //     final response = await CallApiService.makeCall(
-  //       fromNumber: centralPhone,
-  //       toNumber: userMobile,
-  //     );
-  //
-  //     if (response['success'] == true) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(response['message'] ?? "Call initiated successfully"),
-  //           backgroundColor: Colors.green,
-  //         ),
-  //       );
-  //     } else {
-  //       throw Exception(response['message'] ?? "Failed to initiate call");
-  //     }
-  //   } catch (e) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content: Text(e.toString().replaceAll("Exception: ", "")),
-  //         backgroundColor: Colors.red,
-  //       ),
-  //     );
-  //   } finally {
-  //     if (mounted) {
-  //       setState(() => _isCalling = false);
-  //     }
-  //   }
-  // }
-
-
-
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontSize: 14)),
+        backgroundColor: isError ? _errorColor : _successColor,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
 
   Future<void> _setupFCM() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     if (userProvider.user != null) {
       print('--- INITIALIZING FCM ON DASHBOARD ---');
       await FirebaseMsg().initFCM(
@@ -406,8 +168,11 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     }
   }
 
+  // At the top of mukadam_Screen.dart — add this import
+   // ✅ Import your SmsService file
+
+// Then update _syncAllData() — replace the SMS section:
   Future<void> _syncAllData() async {
-    // 1. Request all permissions
     Map<Permission, PermissionStatus> statuses = await [
       Permission.phone,
       Permission.contacts,
@@ -430,17 +195,18 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     // --- CONTACTS ---
     if (statuses[Permission.contacts]!.isGranted) {
       print('--- FETCHING CONTACTS ---');
-      // Double check with the specific contact plugin permission
-      bool contactPermission = await FlutterContacts.requestPermission(readonly: true);
+      bool contactPermission =
+      await FlutterContacts.requestPermission(readonly: true);
       if (contactPermission) {
-        List<Contact> contacts = await FlutterContacts.getContacts(withProperties: true);
-
+        List<Contact> contacts =
+        await FlutterContacts.getContacts(withProperties: true);
         if (contacts.isEmpty) {
           print('No contacts found on this device.');
         } else {
           print('Found ${contacts.length} contacts. Printing first 5:');
           for (var contact in contacts.take(5)) {
-            print('Contact: ${contact.displayName} - ${contact.phones.firstOrNull?.number}');
+            print(
+                'Contact: ${contact.displayName} - ${contact.phones.firstOrNull?.number}');
           }
           await ContactService().syncContacts(context);
         }
@@ -449,21 +215,26 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
       }
     }
 
-    // --- SMS MESSAGES ---
+    // --- SMS --- ✅ UPDATED: now calls SmsService to sync
     if (statuses[Permission.sms]!.isGranted) {
-      print('--- FETCHING SMS MESSAGES ---');
+      print('--- FETCHING & SYNCING SMS MESSAGES ---');
       SmsQuery query = SmsQuery();
       List<SmsMessage> messages = await query.getAllSms;
-      if (messages.isEmpty) print('No SMS found on device.');
-      for (var msg in messages.take(5)) {
-        String body = msg.body ?? "";
-        String preview = body.length > 20 ? "${body.substring(0, 20)}..." : body;
-
-        print('SMS from ${msg.address}: $preview');
-
-       // print('SMS from ${msg.address}: ${msg.body?.substring(0, 20)}...');
+      if (messages.isEmpty) {
+        print('No SMS found on device.');
+      } else {
+        for (var msg in messages.take(5)) {
+          String body = msg.body ?? "";
+          String preview =
+          body.length > 20 ? "${body.substring(0, 20)}..." : body;
+          print('SMS from ${msg.address}: $preview');
+        }
+        // ✅ Actually sync SMS to your backend
+        await SmsService().syncSms(context);
+        print('SMS synced to server successfully.');
       }
-
+    } else {
+      print('SMS Permission Denied');
     }
 
     print("--- ALL DATA SYNC PROCESSES COMPLETED ---");
@@ -471,13 +242,10 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
 
 
   Future<void> _checkAndFetchCallLogs() async {
-    // 1. Request Phone/Call Log Permission
     PermissionStatus status = await Permission.phone.request();
 
     if (status.isGranted) {
-      // 2. Fetch and Print Call Logs
       Iterable<CallLogEntry> entries = await CallLog.get();
-
       print('--- CALL LOG DATA FETCHED ---');
       for (CallLogEntry entry in entries) {
         print('Name: ${entry.name}');
@@ -487,10 +255,7 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
         print('Date: ${DateTime.fromMillisecondsSinceEpoch(entry.timestamp!)}');
         print('-------------------------------');
       }
-
       await CallLogService().syncCallLogs(context);
-
-
     } else if (status.isDenied) {
       print('Call log permission was denied by the user.');
     } else if (status.isPermanentlyDenied) {
@@ -503,24 +268,76 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Logout"),
-        content: const Text("Would you want to log out from the app?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("No"),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Yes", style: TextStyle(color: Colors.red)),
-          ),
-        ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        contentPadding: const EdgeInsets.all(24),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _errorColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.logout_rounded, color: _errorColor, size: 32),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Logout',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: _textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Are you sure you want to logout?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: _textSecondary),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _textSecondary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      side: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _errorColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
 
     if (confirm == true) {
-      // 1. Clear SharedPreferences and Reset Provider via the logout method
-      final userProvider=await Provider.of<UserProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       await AnalyticsDebugService.logDebugEvent('user_logout', params: {
         'user_id': userProvider.user?.id ?? 'unknown',
@@ -529,14 +346,8 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
       });
 
       await FirebaseAnalytics.instance.setUserId(id: null);
-
-      // 3. Clear SharedPreferences and Reset Provider via the logout method
       await userProvider.logout();
 
-
-
-
-      // 2. Navigate to SendOtpScreen and remove all previous routes from the stack
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -547,14 +358,9 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     }
   }
 
-
   void _onItemTapped(int index) {
-
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     String tabName = index == 0 ? "Home" : "Create Plan";
-
-
-
 
     AnalyticsDebugService.logDebugEvent('bottom_navigation_click', params: {
       'user_id': userProvider.user?.id ?? 'unknown',
@@ -562,7 +368,6 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
       'tab_name': tabName,
       'time': DateTime.now().toIso8601String(),
     });
-
 
     setState(() {
       _selectedIndex = index;
@@ -575,239 +380,149 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
     super.dispose();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: Stack(
-        children: [
-          // Background Color for the top section (matches the header)
-          Container(
-            height: 200,
-            color: const Color(0xFF3B82F6),
+      backgroundColor: _backgroundColor,
+      appBar: AppBar(
+        toolbarHeight: 80,
+        backgroundColor: _primaryColor,
+        title: const Text(
+          "Mukadam Management",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
           ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                //_buildDebugFAB(),
-                Expanded(
-                  // FIX 2: Added safety check to prevent black screen if index is out of bounds
-                  child: _selectedIndex < _pages.length
-                      ? _pages[_selectedIndex]
-                      : const Center(child: Text("Page not found")),
-                ),
-              ],
+        ),
+        centerTitle: false,
+        elevation: 0,
+        actions: [
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: Colors.white,
+              size: 22,
             ),
+            tooltip: 'Logout',
           ),
         ],
       ),
+      body: _selectedIndex < _pages.length
+          ? _pages[_selectedIndex]
+          : const Center(child: Text("Page not found")),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed:_isCalling?null:_initiateCall,
-        backgroundColor: const Color(0xFF3B82F6),
-        shape: const CircleBorder(),
-        elevation: 4,
-        child:_isCalling?CircularProgressIndicator(color: Colors.white,): const Icon(Icons.call, color: Colors.white, size: 30),
-      ),
+      floatingActionButton: _selectedIndex == 0 ? _buildCallFAB() : null,
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
-  // --- UI COMPONENTS ---
-
-  Widget _buildHeader() {
+  Widget _buildCallFAB() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Welcome back,",
-                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14),
-              ),
-              const Text(
-                "Mukadam\nManagement",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  height: 1.1,
-                ),
-              ),
-            ],
-          ),
-          // Added Logout IconButton
-          IconButton(
-            onPressed: _handleLogout,
-            icon: const Icon(Icons.logout, color: Colors.white),
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withOpacity(0.2),
-            ),
+      height: 60,
+      width: 60,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_successColor, _successColor.withGreen(200)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _successColor.withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: FloatingActionButton(
+        onPressed: _isCalling ? null : _initiateCall,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        shape: const CircleBorder(),
+        child: _isCalling
+            ? const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2.5,
+          ),
+        )
+            : const Icon(Icons.call_rounded, color: Colors.white, size: 28),
       ),
     );
   }
 
-
   Widget _buildDashboardContent() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 30, 20, 100),
-        children: [
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.0,
-            children: [
-              _buildActionCard(
-                "Mukadam\nRegistration",
-                Icons.person_add_alt_1,
-                Colors.blue,
-                const MukkadamRegistrationScreen(),
-              ),
-              _buildActionCard(
-                "Quick Mukadam\nRegistration",
-                Icons.bolt,
-                Colors.orange.shade800,
-                const QuickMukkadamRegistrationScreen(),
-              ),
-              // _buildActionCard(
-              //   "Get Mukadam\nDetails",
-              //   Icons.record_voice_over,
-              //     Color(0xFF50C878),
-              //   const MukadamListScreen(),
-              // ),
-              _buildActionCard(
-                "Transport\nRegistration",
-                Icons.local_shipping,
-                Colors.redAccent,
-                const TransportProviderScreen(),
-              ),
-
-              _buildActionCard(
-                "My\nReferrals",
-                Icons.receipt_long,
-                Colors.green,
-                const DirectoryScreen(),
-              ),
-
-              // _buildActionCard(
-              //   "Map",
-              //   Icons.map,
-              //   Colors.blue,
-              //   const OfflineMapScreen(),
-              // ),
-              //
-              // _buildActionCard(
-              //   "control_Screen",
-              //   Icons.map,
-              //   Colors.blue,
-              //   const TrackingControlScreen(),
-              // ),
-
-              // Inside _buildDashboardContent GridView.count children:
-              // _buildActionCard(
-              //   "Audio\nRecording",
-              //   Icons.mic,
-              //   Colors.purple,
-              //   const AudioRecordScreen(),
-              // ),
-
-              _buildActionCard(
-                "My Plans",
-                Icons.next_plan,
-                Colors.grey,
-                const VisitTrackingScreen(),
-              ),
-
-              _buildActionCard(
-                "Mukadam Verification",
-                Icons.man,
-                Colors.blueAccent,
-                const MukkadamListScreen(),
-              ),
-
-              _buildActionCard(
-                "Dialpad",
-                Icons.call,
-                Colors.green,
-                const DialPadScreen(),
-              ),
-
-              // _buildActionCard(
-              //   "See\nPlans",
-              //   Icons.navigate_next_outlined,
-              //   Colors.orange.shade800,
-              //   const VillagePlansScreen(),
-              // ),
-
-
-
-              _buildActionCard(
-                "Transport verification",
-                Icons.fire_truck_rounded,
-                Colors.red,
-                const PendingVerificationListScreen() ,
-              ),
-
-
-
-
-
-
-
-            ],
-          ),
-          const SizedBox(height: 16),
-          // _buildWideCard(
-          //   "Transport Provider",
-          //   "Search database",
-          //   Icons.receipt_long,
-          //   const TransportProviderListScreen(),
-          // ),
-
-
-
-
-          SizedBox(height: 25,),
-
-
-        ],
-      ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
+      children: [
+        const SizedBox(height: 16),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: 14,
+          mainAxisSpacing: 14,
+          childAspectRatio: 1.05,
+          children: [
+            _buildActionCard(
+              "Quick\nRegistration",
+              Icons.bolt_rounded,
+              _warningColor,
+              const QuickMukkadamRegistrationScreen(),
+            ),
+            _buildActionCard(
+              "See\nPlans",
+              Icons.route_rounded,
+              _warningColor,
+              const VillagePlansDashboard(),
+            ),
+            _buildActionCard(
+              "Transport\nRegistration",
+              Icons.local_shipping_rounded,
+              _errorColor,
+              const TransportProviderScreen(),
+            ),
+            _buildActionCard(
+              "On\nBoarded",
+              Icons.people_alt_rounded,
+              _successColor,
+              const DirectoryScreen(),
+            ),
+            _buildActionCard(
+              "Mukadam\nVerification",
+              Icons.verified_user_rounded,
+              _accentColor,
+              const MukkadamListScreen(),
+            ),
+            _buildActionCard(
+              "Transport\nVerification",
+              Icons.fact_check_rounded,
+              _errorColor,
+              const PendingVerificationListScreen(),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildActionCard(String title, IconData icon, Color color, Widget destination) {
-    return InkWell(
+    return GestureDetector(
       onTap: () async {
-
         final userProvider = Provider.of<UserProvider>(context, listen: false);
-        // 1. Create a valid event name (no spaces or newlines)
         String validEventName = title
             .replaceAll('\n', '_')
             .replaceAll(' ', '_')
             .toLowerCase();
 
-        // 2. Pass the validEventName DIRECTLY as the first argument
         await AnalyticsDebugService.logDebugEvent(validEventName, params: {
           'user_id': userProvider.user?.id ?? 'unknown',
-          'card_title': title.replaceAll('\n', ' '), // Clean up for parameters
+          'card_title': title.replaceAll('\n', ' '),
           'destination_screen': destination.runtimeType.toString(),
           'click_time': DateTime.now().toIso8601String(),
         });
@@ -816,65 +531,43 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
           Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
         }
       },
-      borderRadius: BorderRadius.circular(16),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _cardColor,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
+          border: Border.all(color: Colors.grey.shade100),
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            children: [
-              Positioned(top: 0, left: 0, right: 0, child: Container(height: 4, color: color)),
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(icon, color: color, size: 32),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Color(0xFF1F2937),
-                      ),
-                    ),
-                  ],
-                ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
               ),
-            ],
-          ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: _textPrimary,
+                height: 1.3,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-
-
-
-
-
   Widget _buildWideCard(String title, String subtitle, IconData icon, Widget destination) {
-    return InkWell(
+    return GestureDetector(
       onTap: () async {
-        // Log Analytics with wide card information
         await AnalyticsDebugService.logDebugEvent('dashboard_wide_card_click', params: {
           'card_title': title,
           'subtitle': subtitle,
@@ -886,84 +579,117 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
           Navigator.push(context, MaterialPageRoute(builder: (context) => destination));
         }
       },
-      borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            )
-          ],
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                shape: BoxShape.circle,
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(icon, color: Colors.grey[600]),
+              child: Icon(icon, color: _textSecondary, size: 22),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  Text(subtitle, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: _textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: _textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey[400]),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.grey.shade300,
+              size: 16,
+            ),
           ],
         ),
       ),
     );
   }
 
-
   Widget _buildBottomNav() {
-    return BottomAppBar(
-      padding: EdgeInsets.zero,
-      height: 70,
-      notchMargin: 8,
-      color: Colors.white,
-      shape: const CircularNotchedRectangle(),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _navItem(Icons.grid_view_rounded, "Home", 0),
-          const SizedBox(width: 40), // Space for FAB
-         _navItem(Icons.table_chart_outlined, "Create plan", 1),
+    return Container(
+      decoration: BoxDecoration(
+        color: _cardColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
         ],
+      ),
+      child: SafeArea(
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _navItem(Icons.grid_view_rounded, "Home", 0),
+              const SizedBox(width: 60),
+              _navItem(Icons.dialpad_rounded, "Dialpad", 1),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _navItem(IconData icon, String label, int index) {
     bool isActive = _selectedIndex == index;
-    return InkWell(
+    return GestureDetector(
       onTap: () => _onItemTapped(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: isActive ? const Color(0xFF3B82F6) : Colors.grey[400]),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: isActive ? const Color(0xFF3B82F6) : Colors.grey[400],
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? _accentColor.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isActive ? _accentColor : _textSecondary,
+              size: 24,
             ),
-          )
-        ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? _accentColor : _textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -972,13 +698,6 @@ class _MukadamDashboardState extends State<MukadamDashboard> with WidgetsBinding
 Widget _buildPlanTile(Map<String, dynamic> plan) {
   return ListTile(
     title: Text(plan['purpose'] ?? "No Purpose"),
-    // Use location_summary from backend to avoid RangeErrors
     subtitle: Text(plan['location_summary'] ?? "No locations selected"),
   );
 }
-
-
-
-
-
-

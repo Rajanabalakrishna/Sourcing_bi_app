@@ -12,7 +12,7 @@ plugins {
 
 android {
     namespace = "com.BharatIntelligence.supply_bi"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -56,7 +56,7 @@ dependencies {
     // Add the dependency for the Google Analytics library
     implementation("com.google.firebase:firebase-analytics")
     // UPDATED: Version changed from 2.0.3 to 2.1.4 to satisfy flutter_local_notifications requirements
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
 
 
