@@ -40,7 +40,7 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
-        android:label="BI_Supply_v4_04_02"
+        android:label="BI_Supply_v5_09_02"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

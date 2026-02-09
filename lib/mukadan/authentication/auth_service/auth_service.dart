@@ -24,6 +24,7 @@ class OtpApiService {
   /// Check if mobile number exists in the system
   static Future<bool> checkMobileExists({required String phoneNumber}) async {
     try {
+      //testing side
       // final response = await http.post(
       //   Uri.parse(
       //       "https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/check-mobile/"),
@@ -68,6 +69,8 @@ class OtpApiService {
   static Future<AuthResponse> mobileLogin(
       {required String phoneNumber}) async {
     try {
+
+      //testing side
       // final response = await http.post(
       //   Uri.parse(
       //       "https://furtive-chrissy-reparably.ngrok-free.dev/api/auth/mobile-login/"),

@@ -1,8 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+
+
+
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:http_parser/http_parser.dart';
+
 
 class quickRegistrationService {
   static const String _baseUrl = 'https://supply.bharatintelligence.ai/api/mukkadam/';
@@ -262,4 +266,36 @@ class quickRegistrationService {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
+
+
+  /// Fetch Kharad Tender Rates reference image directly as bytes
+  /// Returns raw image bytes as List<int> since API returns image directly
+  Future<List<int>?> fetchRateCardImage() async {
+    const String rateCardUrl = 'https://supply.bharatintelligence.ai/api/rate-card/';
+
+    //const String rateCardUrl = 'https://furtive-chrissy-reparably.ngrok-free.dev/api/rate-card/';
+    try {
+      print('📷 Fetching rate card image from $rateCardUrl');
+      final response = await http.get(
+        Uri.parse(rateCardUrl),
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        print('✅ Rate card image fetched successfully (${response.bodyBytes.length} bytes)');
+        return response.bodyBytes.toList();
+      } else {
+        print('❌ Rate card fetch failed: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Error fetching rate card image: $e');
+      return null;
+    }
+  }
+
+
+
 }

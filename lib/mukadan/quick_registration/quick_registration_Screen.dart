@@ -92,6 +92,58 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
   final TextEditingController shootTyingStringsController = TextEditingController();
   final TextEditingController thirdDippingController = TextEditingController();
 
+  // ── Kharad Tender Rates Controllers ──
+  // ── Kharad Tender Rates ──
+  final TextEditingController _tenderTotalPriceController = TextEditingController();
+  String _tenderReferenceImageUrl = '';
+
+// Static tender activity names (fixed, not editable)
+  static const List<String> _tenderActivityNames = [
+    'छाटणी',
+    'शूट निवड (विरळणी)',
+    'बगल व बाकी काढणे',
+    'शेंडा स्टॉपिंग',
+    'दुसरी बगल काढणे',
+    'नवीन वरायटी चे टेंडर (ARRA, Allison)',
+    'सबकॅन',
+    'रेग्युलर वरायटी चे टेंडर (Thompson, Sonaka, Crimson, Sharad, etc.)',
+    'पेटीसिंग',
+    'काडी बांधणे (क्लिप्ससह)',
+  ];
+
+// Price controllers for each static activity (one per activity)
+  final List<TextEditingController> _tenderPriceControllers = List.generate(
+    10,
+        (_) => TextEditingController(),
+  );
+
+  // ── Kharad Tender Rates Handlers ──
+  // ── Kharad Tender Rates Handler ──
+  bool _hasAnyTenderActivity() {
+    return _tenderPriceControllers.any((c) => c.text.trim().isNotEmpty);
+  }
+
+  List<int>? _rateCardImageBytes;
+
+
+
+  Future<void> _loadRateCardImage() async {
+    final imageBytes = await quickRegistrationService().fetchRateCardImage();
+    if (mounted && imageBytes != null) {
+      setState(() {
+        _rateCardImageBytes = imageBytes;
+      });
+    }
+  }
+
+
+
+
+
+
+
+
+
   File? _selectedImage; // Location capture photo
   File? _profilePhoto;
   File? _aadharCardPhoto;
@@ -122,7 +174,22 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
   void initState() {
     super.initState();
     _loadStates();
+    _loadRateCardImage();
+
   }
+
+
+  @override
+  void dispose() {
+    _tenderTotalPriceController.dispose();
+    for (var c in _tenderPriceControllers) {
+      c.dispose();
+    }
+    // ... your existing dispose calls ...
+    super.dispose();
+  }
+
+
 
   // --- Location Permission & Service Check ---
   Future<bool> _checkLocationPermissionsAndService() async {
@@ -606,6 +673,14 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
         return;
       }
 
+      // ── Validate tender total price if activities are provided ──
+      if (_hasAnyTenderActivity() && _tenderTotalPriceController.text.trim().isEmpty) {
+        _showSnackBar('Total price is required when tender activities are provided');
+        return;
+      }
+
+
+
       // Validate GPS coordinates (mandatory)
       if (_latController.text.isEmpty || _longController.text.isEmpty) {
         _showSnackBar("GPS coordinates are mandatory. Please capture location photo");
@@ -646,6 +721,19 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
           "sms": _smsNotification,
           "call": _callNotification,
         },
+
+        // Kharad Tender Rates
+        // Kharad Tender Rates
+        "tender_activities": {
+          "activities": List.generate(_tenderActivityNames.length, (i) => {
+            "name": _tenderActivityNames[i],
+            "price": _tenderPriceControllers[i].text.trim(),
+          }),
+          "total_price": _tenderTotalPriceController.text.trim(),
+          "reference_image_url": _tenderReferenceImageUrl,
+        },
+
+
 
         "aadhar_number": _aadharNumberController.text,
         "pan_number": _panNumberController.text,
@@ -1317,6 +1405,9 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
                   _buildRateCardSection(isDark),
                   const SizedBox(height: 30),
 
+                  _buildKharadTenderRatesSection(isDark),
+                  const SizedBox(height: 20),
+
                   _buildSubmitButton(isDark),
                   const SizedBox(height: 30),
                 ],
@@ -1358,6 +1449,288 @@ class _QuickMukkadamRegistrationScreenState extends State<QuickMukkadamRegistrat
       ),
     );
   }
+
+  Widget _buildKharadTenderRatesSection(bool isDark) {
+    final hasActivity = _hasAnyTenderActivity();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? const Color(0xFF334155) : _borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.03),
+            spreadRadius: 0,
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: _primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.assignment, color: _primaryColor, size: 24),
+            ),
+            title: Text(
+              'Kharad Tender Rates',
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: isDark ? Colors.white : _textPrimary,
+                letterSpacing: -0.3,
+              ),
+            ),
+            subtitle: Text(
+              'खराद टेंडर दर - Optional',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: isDark ? Colors.grey[400] : _textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            initiallyExpanded: false,
+            children: [
+              const SizedBox(height: 10),
+
+              // ── Reference Image Banner (Responsive) ──
+
+              // ── Reference Image Banner (Responsive) ──
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF172554) : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? const Color(0xFF1E40AF) : const Color(0xFFBFDBFE),
+                  ),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _rateCardImageBytes != null
+                      ? Image.memory(
+                    Uint8List.fromList(_rateCardImageBytes!),
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                  )
+                      : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.photo_camera,
+                          size: 24,
+                          color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF3B82F6),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '📷 Loading standard rates reference image...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1E40AF),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: isDark ? const Color(0xFF60A5FA) : _accentColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+
+
+              const SizedBox(height: 16),
+
+              // ── Static Tender Activities (10 fixed rows) ──
+              ...List.generate(_tenderActivityNames.length, (index) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Serial Number
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          color: _primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${index + 1}',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Activity Name (read-only label)
+                      Expanded(
+                        flex: 3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF0F172A).withOpacity(0.5) : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : _borderColor,
+                            ),
+                          ),
+                          child: Text(
+                            _tenderActivityNames[index],
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : _textPrimary,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Price (editable)
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _tenderPriceControllers[index],
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                          ],
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: isDark ? Colors.white : _textPrimary,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Price',
+                            hintStyle: TextStyle(
+                              color: isDark ? Colors.grey[500] : _textSecondary.withOpacity(0.6),
+                              fontSize: 13,
+                            ),
+                            prefixIcon: const Icon(Icons.currency_rupee, size: 16, color: _primaryColor),
+                            filled: true,
+                            fillColor: isDark ? const Color(0xFF0F172A) : _dividerColor,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: isDark ? const Color(0xFF334155) : _borderColor,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: isDark ? const Color(0xFF334155) : _borderColor,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: _accentColor, width: 1.5),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+
+              // ── Total Price (Mandatory if any price is filled) ──
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    text: TextSpan(
+                      text: 'Total Price ',
+                      style: GoogleFonts.inter(
+                        color: isDark ? Colors.grey[300] : _textSecondary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      children: [
+                        if (hasActivity)
+                          const TextSpan(
+                            text: '*',
+                            style: TextStyle(color: _errorColor, fontWeight: FontWeight.bold),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _tenderTotalPriceController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    ],
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      color: isDark ? Colors.white : _textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Total tender price',
+                      hintStyle: TextStyle(
+                        color: isDark ? Colors.grey[500] : _textSecondary.withOpacity(0.6),
+                      ),
+                      prefixIcon: const Icon(Icons.currency_rupee, color: _primaryColor, size: 22),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : _dividerColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? const Color(0xFF334155) : _borderColor,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? const Color(0xFF334155) : _borderColor,
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: _accentColor, width: 2),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
 
   Widget _buildSectionCard({
     required String title,
